@@ -48,12 +48,15 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 
 ## Endpoints disponibles
 
+
 | Méthode | Endpoint | Description |
 |---------|----------|-------------|
 | GET | `/` | Page d'accueil de l'API |
 | GET | `/patients` | Liste tous les patients |
 | GET | `/patients/{id}` | Récupère un patient par son ID |
 | POST | `/patients` | Crée un nouveau patient (avec validation RAMQ) |
+| PUT | `/patients/{id}` | Modifie un patient existant |
+| DELETE | `/patients/{id}` | Supprime un patient |
 
 ## Roadmap
 ### Étape 1 — Setup et premiers endpoints ✅
@@ -110,19 +113,33 @@ soundousboutarfaya@yahoo.fr
 ## Licence
 
 MIT
+
 ## Tests
 
-Le projet inclut une suite de tests unitaires avec Pytest.
+Le projet inclut une suite de **12 tests unitaires** avec Pytest.
 
 ```bash
 pytest -v
 ```
 
 Tests actuellement couverts :
-- Endpoints GET (racine, liste patients, patient par ID, ID inexistant)
-- Création de patient avec données valides
+
+**Lecture (GET)**
+- Endpoint racine
+- Liste de tous les patients
+- Récupération d'un patient par ID
+- Gestion d'un ID inexistant
+
+**Création (POST)**
+- Création avec données valides
 - Rejet des RAMQ au format invalide
-- Rejet des patients sans RAMQ obligatoire
+- Rejet des patients sans RAMQ
 - Détection des doublons de RAMQ
-- Suppression des patients 
-- Modification des indormations de patients 
+
+**Modification (PUT)**
+- Modification d'un patient existant
+- Gestion d'un patient inexistant
+
+**Suppression (DELETE)**
+- Suppression d'un patient existant
+- Gestion d'un patient inexistant
