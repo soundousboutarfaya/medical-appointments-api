@@ -67,8 +67,8 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 - [x] Ajouter validation du format RAMQ (regex Pydantic)
 - [x] Vérifier l'unicité du numéro RAMQ
 - [x] Écrire les premiers tests unitaires avec Pytest (8 tests)
-- [ ] Ajouter `PUT /patients/{id}` pour modifier
-- [ ] Ajouter `DELETE /patients/{id}` pour supprimer
+- [x] Ajouter `PUT /patients/{id}` pour modifier
+- [x] Ajouter `DELETE /patients/{id}` pour supprimer
 
 ### Étape 2 — Base de données
 - [ ] Modéliser le schéma (patients, médecins, rendez-vous)
@@ -124,3 +124,5 @@ Tests actuellement couverts :
 - Rejet des RAMQ au format invalide
 - Rejet des patients sans RAMQ obligatoire
 - Détection des doublons de RAMQ
+- Suppression des patients 
+- Modification des indormations de patients 
