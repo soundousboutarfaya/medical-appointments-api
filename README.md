@@ -13,9 +13,9 @@ J'ai travaillé plusieurs années comme adjointe administrative dans des cliniqu
 - **Python 3.13**
 - **FastAPI** — framework web pour l'API REST
 - **Uvicorn** — serveur ASGI
-- **SQLAlchemy** — ORM (à venir)
-- **SQLite** puis **PostgreSQL** — base de données (à venir)
-- **Pytest** — tests automatisés (à venir)
+- **SQLAlchemy** — ORM
+- **SQLite** (puis **PostgreSQL** plus tard) — base de données
+- **Pytest** — tests automatisés
 
 ## Installation
 
@@ -37,7 +37,7 @@ source venv/bin/activate  # sur Mac/Linux
 # .\venv\Scripts\activate   # sur Windows
 
 # Installer les dépendances
-pip install fastapi uvicorn
+pip install fastapi uvicorn sqlalchemy pytest httpx
 
 # Lancer le serveur
 uvicorn main:app --reload
@@ -74,9 +74,9 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 - [x] Ajouter `DELETE /patients/{id}` pour supprimer
 
 ### Étape 2 — Base de données
-- [ ] Modéliser le schéma (patients, médecins, rendez-vous)
-- [ ] Intégrer SQLAlchemy avec SQLite
-- [ ] Migrer du stockage en mémoire vers la base de données
+- [x] Intégrer SQLAlchemy avec SQLite
+- [x] Migrer du stockage en mémoire vers la base de données
+- [ ] Modéliser le schéma complet (médecins, rendez-vous)
 
 ### Étape 3 — Logique métier
 - [ ] Empêcher le double-booking d'un médecin
@@ -87,7 +87,7 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 ### Étape 4 — Sécurité et tests
 - [ ] Authentification JWT
 - [ ] Système de rôles (admin, médecin)
-- [ ] Tests unitaires avec Pytest
+- [x] Tests unitaires avec Pytest
 - [ ] Tests d'intégration
 
 ### Étape 5 — Déploiement
@@ -116,7 +116,7 @@ MIT
 
 ## Tests
 
-Le projet inclut une suite de **12 tests unitaires** avec Pytest.
+Le projet inclut une suite de **14 tests unitaires** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
 
 ```bash
 pytest -v
