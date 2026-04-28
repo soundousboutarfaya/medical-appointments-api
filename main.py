@@ -66,3 +66,35 @@ def create_patient(nouveau_patient: PatientCreate):
 
     # Retourne le patient créé
     return patient_dict
+
+@app.put("/patients/{patient_id}")
+def update_patient(patient_id: int, patient_modifie: PatientCreate):
+    # Cherche le patient à modifier
+    for index, patient in enumerate(patients):
+        if patient["id"] == patient_id:
+            # Vérifier que le nouveau RAMQ n'est pas déjà utilisé par quelqu'un d'autre
+            for autre in patients:
+                if autre["id"] != patient_id and autre["numero_ramq"] == patient_modifie.numero_ramq:
+                    return {"erreur": "Ce numéro RAMQ est déjà utilisé par un autre patient"}
+
+            # Met à jour les infos (en gardant le même ID)
+            patients[index] = {
+                "id": patient_id,
+                "nom": patient_modifie.nom,
+                "prenom": patient_modifie.prenom,
+                "age": patient_modifie.age,
+                "numero_ramq": patient_modifie.numero_ramq,
+            }
+            return patients[index]
+
+    return {"erreur": "Patient introuvable"}
+
+
+@app.delete("/patients/{patient_id}")
+def delete_patient(patient_id: int):
+    for index, patient in enumerate(patients):
+        if patient["id"] == patient_id:
+            patient_supprime = patients.pop(index)
+            return {"message": "Patient supprimé avec succès", "patient": patient_supprime}
+
+    return {"erreur": "Patient introuvable"}

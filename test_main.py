@@ -83,3 +83,53 @@ def test_create_patient_ramq_duplique():
     response = client.post("/patients", json=patient)
     assert response.status_code == 200
     assert "erreur" in response.json()
+    
+def test_update_patient_existant():
+    """Teste la modification d'un patient existant."""
+    patient_modifie = {
+        "nom": "Tremblay",
+        "prenom": "Marie",
+        "age": 46,  # Âge changé
+        "numero_ramq": "TREM45120115",
+    }
+    response = client.put("/patients/1", json=patient_modifie)
+    assert response.status_code == 200
+    assert response.json()["age"] == 46
+
+
+def test_update_patient_inexistant():
+    """Teste qu'on ne peut pas modifier un patient qui n'existe pas."""
+    patient = {
+        "nom": "Test",
+        "prenom": "Test",
+        "age": 30,
+        "numero_ramq": "TEST12345678",
+    }
+    response = client.put("/patients/9999", json=patient)
+    assert response.status_code == 200
+    assert "erreur" in response.json()
+
+
+def test_delete_patient_existant():
+    """Teste la suppression d'un patient."""
+    # On crée d'abord un patient à supprimer (pour ne pas casser les autres tests)
+    nouveau = {
+        "nom": "ASupprimer",
+        "prenom": "Test",
+        "age": 30,
+        "numero_ramq": "ASUP99999999",
+    }
+    create_response = client.post("/patients", json=nouveau)
+    patient_id = create_response.json()["id"]
+
+    # Maintenant on le supprime
+    delete_response = client.delete(f"/patients/{patient_id}")
+    assert delete_response.status_code == 200
+    assert "message" in delete_response.json()
+
+
+def test_delete_patient_inexistant():
+    """Teste la suppression d'un patient qui n'existe pas."""
+    response = client.delete("/patients/9999")
+    assert response.status_code == 200
+    assert "erreur" in response.json()
