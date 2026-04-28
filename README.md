@@ -57,6 +57,16 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 | POST | `/patients` | Crée un nouveau patient (avec validation RAMQ) |
 | PUT | `/patients/{id}` | Modifie un patient existant |
 | DELETE | `/patients/{id}` | Supprime un patient |
+| GET | `/medecins` | Liste tous les médecins |
+| GET | `/medecins/{id}` | Récupère un médecin par son ID |
+| POST | `/medecins` | Crée un nouveau médecin (validation du numéro de permis) |
+| PUT | `/medecins/{id}` | Modifie un médecin existant |
+| DELETE | `/medecins/{id}` | Supprime un médecin |
+| GET | `/rendezvous` | Liste tous les rendez-vous |
+| GET | `/rendezvous/{id}` | Récupère un rendez-vous par son ID |
+| POST | `/rendezvous` | Crée un rendez-vous (en personne ou virtuel) |
+| PUT | `/rendezvous/{id}` | Modifie un rendez-vous existant |
+| DELETE | `/rendezvous/{id}` | Supprime un rendez-vous |
 
 ## Roadmap
 ### Étape 1 — Setup et premiers endpoints ✅
@@ -73,10 +83,12 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 - [x] Ajouter `PUT /patients/{id}` pour modifier
 - [x] Ajouter `DELETE /patients/{id}` pour supprimer
 
-### Étape 2 — Base de données
+### Étape 2 — Base de données ✅
 - [x] Intégrer SQLAlchemy avec SQLite
 - [x] Migrer du stockage en mémoire vers la base de données
-- [ ] Modéliser le schéma complet (médecins, rendez-vous)
+- [x] Modéliser le schéma complet (médecins, rendez-vous)
+- [x] CRUD complet pour médecins et rendez-vous
+- [x] Mode de consultation (en personne / virtuel) sur les rendez-vous
 
 ### Étape 3 — Logique métier
 - [ ] Empêcher le double-booking d'un médecin
@@ -116,7 +128,7 @@ MIT
 
 ## Tests
 
-Le projet inclut une suite de **14 tests unitaires** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
+Le projet inclut une suite de **34 tests unitaires** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
 
 ```bash
 pytest -v
@@ -143,3 +155,15 @@ Tests actuellement couverts :
 **Suppression (DELETE)**
 - Suppression d'un patient existant
 - Gestion d'un patient inexistant
+- Cascade : la suppression d'un patient supprime ses rendez-vous
+
+**Médecins**
+- CRUD complet
+- Validation du format du numéro de permis (5 chiffres)
+- Détection des doublons de permis
+
+**Rendez-vous**
+- Création en personne et virtuel
+- Rejet des modes invalides
+- Vérification de l'existence du patient et du médecin référencés
+- Modification du statut (prévu / confirmé / annulé / complété)
