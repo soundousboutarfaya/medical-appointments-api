@@ -53,17 +53,20 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 | GET | `/` | Page d'accueil de l'API |
 | GET | `/patients` | Liste tous les patients |
 | GET | `/patients/{id}` | Récupère un patient par son ID |
+| POST | `/patients` | Crée un nouveau patient (avec validation RAMQ) |
 
 ## Roadmap
-
-### Étape 1 — Setup et premiers endpoints (en cours)
+### Étape 1 — Setup et premiers endpoints ✅
 - [x] Initialiser le projet et le repo GitHub
 - [x] Configurer l'environnement virtuel Python
 - [x] Installer FastAPI et Uvicorn
 - [x] Créer un endpoint racine `GET /`
 - [x] Créer un endpoint `GET /patients` (liste en mémoire)
 - [x] Créer un endpoint `GET /patients/{id}` avec validation automatique
-- [ ] Ajouter `POST /patients` pour créer un patient
+- [x] Ajouter `POST /patients` pour créer un patient
+- [x] Ajouter validation du format RAMQ (regex Pydantic)
+- [x] Vérifier l'unicité du numéro RAMQ
+- [x] Écrire les premiers tests unitaires avec Pytest (8 tests)
 - [ ] Ajouter `PUT /patients/{id}` pour modifier
 - [ ] Ajouter `DELETE /patients/{id}` pour supprimer
 
@@ -107,3 +110,17 @@ soundousboutarfaya@yahoo.fr
 ## Licence
 
 MIT
+## Tests
+
+Le projet inclut une suite de tests unitaires avec Pytest.
+
+```bash
+pytest -v
+```
+
+Tests actuellement couverts :
+- Endpoints GET (racine, liste patients, patient par ID, ID inexistant)
+- Création de patient avec données valides
+- Rejet des RAMQ au format invalide
+- Rejet des patients sans RAMQ obligatoire
+- Détection des doublons de RAMQ
