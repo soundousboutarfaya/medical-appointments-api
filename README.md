@@ -1,2 +1,109 @@
-# medical-appointments-api
-API REST de gestion de rendez-vous médicaux — Python, FastAPI, SQLAlchemy
+# Medical Appointments API
+
+API REST de gestion de rendez-vous médicaux développée en Python avec FastAPI.
+
+Projet personnel d'apprentissage du développement backend, inspiré de mon expérience administrative en milieu médical (clinique, hôpital).
+
+## Pourquoi ce projet
+
+J'ai travaillé plusieurs années comme adjointe administrative dans des cliniques et hôpitaux, où j'ai utilisé quotidiennement des logiciels de gestion de rendez-vous, de dossiers patients et de prescriptions. Je connais les vrais problèmes du domaine : double-booking, gestion des disponibilités, confidentialité des données. Ce projet me permet de les attaquer du côté développeur cette fois.
+
+## Stack technique
+
+- **Python 3.13**
+- **FastAPI** — framework web pour l'API REST
+- **Uvicorn** — serveur ASGI
+- **SQLAlchemy** — ORM (à venir)
+- **SQLite** puis **PostgreSQL** — base de données (à venir)
+- **Pytest** — tests automatisés (à venir)
+
+## Installation
+
+### Prérequis
+
+- Python 3.11 ou plus récent
+- Git
+
+### Étapes
+
+```bash
+# Cloner le repo
+git clone https://github.com/soundousboutarfaya/medical-appointments-api.git
+cd medical-appointments-api
+
+# Créer et activer l'environnement virtuel
+python3 -m venv venv
+source venv/bin/activate  # sur Mac/Linux
+# .\venv\Scripts\activate   # sur Windows
+
+# Installer les dépendances
+pip install fastapi uvicorn
+
+# Lancer le serveur
+uvicorn main:app --reload
+```
+
+L'API est ensuite disponible sur `http://127.0.0.1:8000`.
+La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
+
+## Endpoints disponibles
+
+| Méthode | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/` | Page d'accueil de l'API |
+| GET | `/patients` | Liste tous les patients |
+| GET | `/patients/{id}` | Récupère un patient par son ID |
+
+## Roadmap
+
+### Étape 1 — Setup et premiers endpoints (en cours)
+- [x] Initialiser le projet et le repo GitHub
+- [x] Configurer l'environnement virtuel Python
+- [x] Installer FastAPI et Uvicorn
+- [x] Créer un endpoint racine `GET /`
+- [x] Créer un endpoint `GET /patients` (liste en mémoire)
+- [x] Créer un endpoint `GET /patients/{id}` avec validation automatique
+- [ ] Ajouter `POST /patients` pour créer un patient
+- [ ] Ajouter `PUT /patients/{id}` pour modifier
+- [ ] Ajouter `DELETE /patients/{id}` pour supprimer
+
+### Étape 2 — Base de données
+- [ ] Modéliser le schéma (patients, médecins, rendez-vous)
+- [ ] Intégrer SQLAlchemy avec SQLite
+- [ ] Migrer du stockage en mémoire vers la base de données
+
+### Étape 3 — Logique métier
+- [ ] Empêcher le double-booking d'un médecin
+- [ ] Valider les horaires d'ouverture
+- [ ] Endpoint de recherche de créneaux disponibles
+- [ ] Règle d'annulation (24h à l'avance minimum)
+
+### Étape 4 — Sécurité et tests
+- [ ] Authentification JWT
+- [ ] Système de rôles (admin, médecin)
+- [ ] Tests unitaires avec Pytest
+- [ ] Tests d'intégration
+
+### Étape 5 — Déploiement
+- [ ] Déployer sur Render ou Railway
+- [ ] Documentation finale
+- [ ] Captures d'écran de Swagger UI
+
+## Ce que j'apprends en construisant ce projet
+
+- Architecture d'une API REST
+- Conception de schémas de bases de données relationnelles
+- Validation de données avec Pydantic
+- Authentification et sécurité d'API
+- Tests automatisés
+- Déploiement d'applications Python
+
+## Auteure
+
+**Soundous Boutarfaya**
+Bachelière en informatique, Université de Montréal
+soundousboutarfaya@yahoo.fr
+
+## Licence
+
+MIT
