@@ -57,6 +57,7 @@ class RendezVous(Base):
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
     medecin_id = Column(Integer, ForeignKey("medecins.id"), nullable=False, index=True)
     date_heure = Column(DateTime, nullable=False)
+    duree_minutes = Column(Integer, nullable=False, default=30)
     motif = Column(String, nullable=True)
     statut = Column(
         Enum(StatutRendezVous),

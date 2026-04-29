@@ -1,9 +1,12 @@
+from datetime import datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import main
 from main import app
 from database import Base, get_db
 import models
@@ -384,3 +387,236 @@ def test_delete_patient_supprime_ses_rdv():
 
     client.delete(f"/patients/{patient_id}")
     assert client.get(f"/rendezvous/{rdv_id}").status_code == 404
+
+
+# ===== TESTS : ÉTAPE 3 — LOGIQUE MÉTIER =====
+# Note : 2026-05-15 est un vendredi. 2026-05-16 = samedi, 2026-05-18 = lundi.
+
+# --- Horaires d'ouverture ---
+
+def test_rdv_avant_ouverture_refuse():
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T07:00:00")
+    assert response.status_code == 400
+    assert "8h" in response.json()["detail"]
+
+
+def test_rdv_apres_fermeture_refuse():
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T18:30:00")
+    assert response.status_code == 400
+
+
+def test_rdv_qui_deborde_apres_18h_refuse():
+    """Un RDV de 60 min commençant à 17h30 finit à 18h30 → doit être refusé."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    response = client.post(
+        "/rendezvous",
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T17:30:00",
+            "duree_minutes": 60,
+            "mode": "en_personne",
+        },
+    )
+    assert response.status_code == 400
+
+
+def test_rdv_weekend_refuse():
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-16T10:00:00")
+    assert response.status_code == 400
+    assert "week-end" in response.json()["detail"]
+
+
+# --- Double-booking ---
+
+def test_double_booking_meme_heure_refuse():
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+    assert response.status_code == 409
+
+
+def test_double_booking_chevauchement_refuse():
+    """RDV de 30 min à 10h → un autre RDV à 10h15 chevauche."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:15:00")
+    assert response.status_code == 409
+
+
+def test_rdv_consecutifs_acceptes():
+    """RDV à 10h00 (30 min) puis à 10h30 → pas de chevauchement."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:30:00")
+    assert response.status_code == 200
+
+
+def test_double_booking_medecins_differents_accepte():
+    """Deux médecins peuvent avoir un RDV à la même heure."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin1_id = creer_medecin_test().json()["id"]
+    medecin2_id = creer_medecin_test(nom="Roy", prenom="Jean", permis="67890").json()["id"]
+    creer_rdv_test(patient_id, medecin1_id, date_heure="2026-05-15T10:00:00")
+    response = creer_rdv_test(patient_id, medecin2_id, date_heure="2026-05-15T10:00:00")
+    assert response.status_code == 200
+
+
+def test_rdv_annule_libere_le_creneau():
+    """Un RDV avec statut=annule ne bloque plus le créneau."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+
+    # On annule le premier (date assez loin pour passer la règle 24h)
+    annulation = client.put(
+        f"/rendezvous/{rdv_id}",
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T10:00:00",
+            "statut": "annule",
+            "mode": "en_personne",
+        },
+    )
+    assert annulation.status_code == 200
+
+    # Un autre RDV peut maintenant prendre la place
+    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+    assert response.status_code == 200
+
+
+# --- Créneaux disponibles ---
+
+def test_creneaux_journee_vide():
+    """Un médecin sans RDV → tous les créneaux 8h à 17h30 disponibles (20 créneaux de 30 min)."""
+    medecin_id = creer_medecin_test().json()["id"]
+    response = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-15")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["date"] == "2026-05-15"
+    assert len(data["creneaux_disponibles"]) == 20
+    assert data["creneaux_disponibles"][0] == "08:00"
+    assert data["creneaux_disponibles"][-1] == "17:30"
+
+
+def test_creneaux_avec_rdv_pris():
+    """Un RDV à 10h occupe le créneau de 10h00."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+
+    response = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-15")
+    assert response.status_code == 200
+    creneaux = response.json()["creneaux_disponibles"]
+    assert "10:00" not in creneaux
+    assert "09:30" in creneaux
+    assert "10:30" in creneaux
+
+
+def test_creneaux_rdv_long_bloque_plusieurs_creneaux():
+    """Un RDV de 60 min à 10h bloque les créneaux 10h00 et 10h30."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    client.post(
+        "/rendezvous",
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T10:00:00",
+            "duree_minutes": 60,
+            "mode": "en_personne",
+        },
+    )
+    creneaux = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-15").json()["creneaux_disponibles"]
+    assert "10:00" not in creneaux
+    assert "10:30" not in creneaux
+    assert "11:00" in creneaux
+
+
+def test_creneaux_weekend_vide():
+    medecin_id = creer_medecin_test().json()["id"]
+    response = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-16")
+    assert response.status_code == 200
+    assert response.json()["creneaux_disponibles"] == []
+
+
+def test_creneaux_medecin_inexistant():
+    response = client.get("/medecins/9999/creneaux?jour=2026-05-15")
+    assert response.status_code == 404
+
+
+# --- Règle d'annulation 24h ---
+
+def test_annulation_plus_de_24h_acceptee():
+    """RDV dans plus de 24h → annulation possible."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+
+    response = client.put(
+        f"/rendezvous/{rdv_id}",
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T10:00:00",
+            "statut": "annule",
+            "mode": "en_personne",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["statut"] == "annule"
+
+
+def test_annulation_moins_de_24h_refusee(monkeypatch):
+    """RDV dans moins de 24h → annulation refusée (400)."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+
+    # On simule "maintenant = 14 mai 2026 15h" → RDV est dans 19h, donc moins de 24h
+    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 14, 15, 0))
+
+    response = client.put(
+        f"/rendezvous/{rdv_id}",
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T10:00:00",
+            "statut": "annule",
+            "mode": "en_personne",
+        },
+    )
+    assert response.status_code == 400
+    assert "24h" in response.json()["detail"]
+
+
+def test_modification_autre_que_annulation_pas_concernee_par_24h(monkeypatch):
+    """Confirmer un RDV à moins de 24h doit rester possible."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+
+    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 14, 15, 0))
+
+    response = client.put(
+        f"/rendezvous/{rdv_id}",
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T10:00:00",
+            "statut": "confirme",
+            "mode": "en_personne",
+        },
+    )
+    assert response.status_code == 200

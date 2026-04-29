@@ -67,9 +67,10 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 | POST | `/rendezvous` | Crée un rendez-vous (en personne ou virtuel) |
 | PUT | `/rendezvous/{id}` | Modifie un rendez-vous existant |
 | DELETE | `/rendezvous/{id}` | Supprime un rendez-vous |
+| GET | `/medecins/{id}/creneaux?jour=YYYY-MM-DD` | Liste les créneaux libres d'un médecin pour une journée |
 
 ## Roadmap
-### Étape 1 — Setup et premiers endpoints ✅
+### Étape 1 — Setup et premiers endpoints
 - [x] Initialiser le projet et le repo GitHub
 - [x] Configurer l'environnement virtuel Python
 - [x] Installer FastAPI et Uvicorn
@@ -83,7 +84,7 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 - [x] Ajouter `PUT /patients/{id}` pour modifier
 - [x] Ajouter `DELETE /patients/{id}` pour supprimer
 
-### Étape 2 — Base de données ✅
+### Étape 2 — Base de données
 - [x] Intégrer SQLAlchemy avec SQLite
 - [x] Migrer du stockage en mémoire vers la base de données
 - [x] Modéliser le schéma complet (médecins, rendez-vous)
@@ -91,10 +92,10 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 - [x] Mode de consultation (en personne / virtuel) sur les rendez-vous
 
 ### Étape 3 — Logique métier
-- [ ] Empêcher le double-booking d'un médecin
-- [ ] Valider les horaires d'ouverture
-- [ ] Endpoint de recherche de créneaux disponibles
-- [ ] Règle d'annulation (24h à l'avance minimum)
+- [x] Empêcher le double-booking d'un médecin (détection de chevauchement avec durée variable)
+- [x] Valider les horaires d'ouverture (8h–18h, lundi au vendredi)
+- [x] Endpoint de recherche de créneaux disponibles (granularité 30 min)
+- [x] Règle d'annulation (24h à l'avance minimum)
 
 ### Étape 4 — Sécurité et tests
 - [ ] Authentification JWT
@@ -128,7 +129,7 @@ MIT
 
 ## Tests
 
-Le projet inclut une suite de **34 tests unitaires** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
+Le projet inclut une suite de **51 tests unitaires** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
 
 ```bash
 pytest -v
@@ -167,3 +168,12 @@ Tests actuellement couverts :
 - Rejet des modes invalides
 - Vérification de l'existence du patient et du médecin référencés
 - Modification du statut (prévu / confirmé / annulé / complété)
+
+**Logique métier**
+- Refus des RDV hors plage 8h–18h ou en débordement
+- Refus des RDV le week-end
+- Détection de chevauchement (double-booking) avec durée variable
+- Acceptation des RDV consécutifs et des médecins différents au même horaire
+- Libération du créneau quand un RDV est annulé
+- Calcul des créneaux disponibles pour un médecin sur une journée
+- Règle d'annulation 24h (testée avec mock du temps)
