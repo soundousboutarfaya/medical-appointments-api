@@ -1,7 +1,10 @@
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -32,6 +35,10 @@ def _maintenant() -> datetime:
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+# Fichiers statiques du front (HTML, JS, CSS)
+STATIC_DIR = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 # ===== MODÈLES PYDANTIC : PATIENTS =====
@@ -165,8 +172,14 @@ def lire_mon_profil(current: models.User = Depends(get_current_user)):
 
 # ===== ENDPOINTS : RACINE =====
 
-@app.get("/")
+@app.get("/", response_class=FileResponse)
 def read_root():
+    """Sert l'application front (single-page app)."""
+    return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/api/health")
+def health_check():
     return {"message": "Bonjour, mon API fonctionne !"}
 
 

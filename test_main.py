@@ -123,9 +123,17 @@ def creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00",
 
 # ===== TESTS =====
 
-def test_read_root():
-    """Teste que la racine renvoie le message de bienvenue."""
-    response = client.get("/")
+def test_read_root_sert_le_front():
+    """La racine sert l'application front (HTML)."""
+    response = client_anonyme.get("/")
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "<html" in response.text.lower()
+
+
+def test_health_check():
+    """Endpoint de santé pour le monitoring."""
+    response = client_anonyme.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"message": "Bonjour, mon API fonctionne !"}
 
