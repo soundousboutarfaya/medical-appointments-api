@@ -1,8 +1,21 @@
 from datetime import date, datetime, time, timedelta
 
 from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
+from database import engine, Base, get_db
+import models
+from models import ModeConsultation, RoleUtilisateur, StatutRendezVous
+from auth import (
+    create_access_token,
+    get_current_user,
+    hash_password,
+    require_admin,
+    require_personnel,
+    verify_password,
+)
 
 # Constantes des horaires d'ouverture de la clinique
 HEURE_OUVERTURE = 8   # 8h00
@@ -14,10 +27,6 @@ HEURES_AVANT_ANNULATION = 24
 def _maintenant() -> datetime:
     """Wrappé pour faciliter le mock dans les tests."""
     return datetime.now()
-
-from database import engine, Base, get_db
-import models
-from models import ModeConsultation, StatutRendezVous
 
 # Crée toutes les tables au démarrage (si elles n'existent pas déjà)
 Base.metadata.create_all(bind=engine)
@@ -96,6 +105,64 @@ class RendezVousResponse(BaseModel):
     mode: ModeConsultation
 
 
+# ===== MODÈLES PYDANTIC : AUTHENTIFICATION =====
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    role: RoleUtilisateur = RoleUtilisateur.medecin
+
+
+class UserResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: EmailStr
+    role: RoleUtilisateur
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+# ===== ENDPOINTS : AUTHENTIFICATION =====
+
+@app.post("/auth/register", response_model=UserResponse)
+def register(nouvel_utilisateur: UserCreate, db: Session = Depends(get_db)):
+    """Création de compte. En production, devrait être restreint aux admins."""
+    existant = db.query(models.User).filter(models.User.email == nouvel_utilisateur.email).first()
+    if existant:
+        raise HTTPException(status_code=409, detail="Un compte avec cet email existe déjà")
+
+    user = models.User(
+        email=nouvel_utilisateur.email,
+        hashed_password=hash_password(nouvel_utilisateur.password),
+        role=nouvel_utilisateur.role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@app.post("/auth/login", response_model=Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    if not user or not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(
+            status_code=401,
+            detail="Email ou mot de passe invalide",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return Token(access_token=create_access_token(sub=user.email))
+
+
+@app.get("/auth/me", response_model=UserResponse)
+def lire_mon_profil(current: models.User = Depends(get_current_user)):
+    return current
+
+
 # ===== ENDPOINTS : RACINE =====
 
 @app.get("/")
@@ -106,12 +173,19 @@ def read_root():
 # ===== ENDPOINTS : PATIENTS =====
 
 @app.get("/patients", response_model=list[PatientResponse])
-def get_all_patients(db: Session = Depends(get_db)):
+def get_all_patients(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     return db.query(models.Patient).all()
 
 
 @app.get("/patients/{patient_id}", response_model=PatientResponse)
-def get_patient_by_id(patient_id: int, db: Session = Depends(get_db)):
+def get_patient_by_id(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient introuvable")
@@ -119,7 +193,11 @@ def get_patient_by_id(patient_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/patients", response_model=PatientResponse)
-def create_patient(nouveau_patient: PatientCreate, db: Session = Depends(get_db)):
+def create_patient(
+    nouveau_patient: PatientCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     existant = db.query(models.Patient).filter(
         models.Patient.numero_ramq == nouveau_patient.numero_ramq
     ).first()
@@ -145,7 +223,8 @@ def create_patient(nouveau_patient: PatientCreate, db: Session = Depends(get_db)
 def update_patient(
     patient_id: int,
     patient_modifie: PatientCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
 ):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
@@ -172,7 +251,11 @@ def update_patient(
 
 
 @app.delete("/patients/{patient_id}")
-def delete_patient(patient_id: int, db: Session = Depends(get_db)):
+def delete_patient(
+    patient_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     patient = db.query(models.Patient).filter(models.Patient.id == patient_id).first()
     if not patient:
         raise HTTPException(status_code=404, detail="Patient introuvable")
@@ -185,12 +268,19 @@ def delete_patient(patient_id: int, db: Session = Depends(get_db)):
 # ===== ENDPOINTS : MÉDECINS =====
 
 @app.get("/medecins", response_model=list[MedecinResponse])
-def get_all_medecins(db: Session = Depends(get_db)):
+def get_all_medecins(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     return db.query(models.Medecin).all()
 
 
 @app.get("/medecins/{medecin_id}", response_model=MedecinResponse)
-def get_medecin_by_id(medecin_id: int, db: Session = Depends(get_db)):
+def get_medecin_by_id(
+    medecin_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     medecin = db.query(models.Medecin).filter(models.Medecin.id == medecin_id).first()
     if not medecin:
         raise HTTPException(status_code=404, detail="Médecin introuvable")
@@ -198,7 +288,11 @@ def get_medecin_by_id(medecin_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/medecins", response_model=MedecinResponse)
-def create_medecin(nouveau_medecin: MedecinCreate, db: Session = Depends(get_db)):
+def create_medecin(
+    nouveau_medecin: MedecinCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     existant = db.query(models.Medecin).filter(
         models.Medecin.numero_permis == nouveau_medecin.numero_permis
     ).first()
@@ -219,7 +313,8 @@ def create_medecin(nouveau_medecin: MedecinCreate, db: Session = Depends(get_db)
 def update_medecin(
     medecin_id: int,
     medecin_modifie: MedecinCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
 ):
     medecin = db.query(models.Medecin).filter(models.Medecin.id == medecin_id).first()
     if not medecin:
@@ -246,7 +341,11 @@ def update_medecin(
 
 
 @app.delete("/medecins/{medecin_id}")
-def delete_medecin(medecin_id: int, db: Session = Depends(get_db)):
+def delete_medecin(
+    medecin_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_admin),
+):
     medecin = db.query(models.Medecin).filter(models.Medecin.id == medecin_id).first()
     if not medecin:
         raise HTTPException(status_code=404, detail="Médecin introuvable")
@@ -310,12 +409,19 @@ def _verifier_conflit_horaire(rdv: RendezVousCreate, db: Session, exclure_id: in
 
 
 @app.get("/rendezvous", response_model=list[RendezVousResponse])
-def get_all_rendezvous(db: Session = Depends(get_db)):
+def get_all_rendezvous(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     return db.query(models.RendezVous).all()
 
 
 @app.get("/rendezvous/{rdv_id}", response_model=RendezVousResponse)
-def get_rendezvous_by_id(rdv_id: int, db: Session = Depends(get_db)):
+def get_rendezvous_by_id(
+    rdv_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     rdv = db.query(models.RendezVous).filter(models.RendezVous.id == rdv_id).first()
     if not rdv:
         raise HTTPException(status_code=404, detail="Rendez-vous introuvable")
@@ -323,7 +429,11 @@ def get_rendezvous_by_id(rdv_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/rendezvous", response_model=RendezVousResponse)
-def create_rendezvous(nouveau_rdv: RendezVousCreate, db: Session = Depends(get_db)):
+def create_rendezvous(
+    nouveau_rdv: RendezVousCreate,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_personnel),
+):
     _verifier_patient_et_medecin(nouveau_rdv, db)
     _verifier_horaires_ouverture(nouveau_rdv)
     _verifier_conflit_horaire(nouveau_rdv, db)
@@ -339,7 +449,8 @@ def create_rendezvous(nouveau_rdv: RendezVousCreate, db: Session = Depends(get_d
 def update_rendezvous(
     rdv_id: int,
     rdv_modifie: RendezVousCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_personnel),
 ):
     rdv = db.query(models.RendezVous).filter(models.RendezVous.id == rdv_id).first()
     if not rdv:
@@ -374,7 +485,11 @@ def update_rendezvous(
 
 
 @app.delete("/rendezvous/{rdv_id}")
-def delete_rendezvous(rdv_id: int, db: Session = Depends(get_db)):
+def delete_rendezvous(
+    rdv_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_personnel),
+):
     rdv = db.query(models.RendezVous).filter(models.RendezVous.id == rdv_id).first()
     if not rdv:
         raise HTTPException(status_code=404, detail="Rendez-vous introuvable")
@@ -387,7 +502,12 @@ def delete_rendezvous(rdv_id: int, db: Session = Depends(get_db)):
 # ===== ENDPOINT : RECHERCHE DE CRÉNEAUX DISPONIBLES =====
 
 @app.get("/medecins/{medecin_id}/creneaux")
-def get_creneaux_disponibles(medecin_id: int, jour: date, db: Session = Depends(get_db)):
+def get_creneaux_disponibles(
+    medecin_id: int,
+    jour: date,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(get_current_user),
+):
     """Retourne les créneaux libres (pas de doublon avec les RDV existants) du médecin pour une journée."""
     medecin = db.query(models.Medecin).filter(models.Medecin.id == medecin_id).first()
     if not medecin:

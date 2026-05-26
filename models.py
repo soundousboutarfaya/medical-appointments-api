@@ -18,6 +18,20 @@ class ModeConsultation(str, enum.Enum):
     virtuel = "virtuel"
 
 
+class RoleUtilisateur(str, enum.Enum):
+    admin = "admin"
+    medecin = "medecin"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    hashed_password = Column(String, nullable=False)
+    role = Column(Enum(RoleUtilisateur), nullable=False)
+
+
 class Patient(Base):
     __tablename__ = "patients"
 

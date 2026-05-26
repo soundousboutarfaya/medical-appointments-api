@@ -16,6 +16,7 @@ J'ai travaillé plusieurs années comme adjointe administrative dans des cliniqu
 - **SQLAlchemy** — ORM
 - **SQLite** (puis **PostgreSQL** plus tard) — base de données
 - **Pytest** — tests automatisés
+- **python-jose** + **passlib/bcrypt** — authentification JWT et hash des mots de passe
 
 ## Installation
 
@@ -37,7 +38,11 @@ source venv/bin/activate  # sur Mac/Linux
 # .\venv\Scripts\activate   # sur Windows
 
 # Installer les dépendances
-pip install fastapi uvicorn sqlalchemy pytest httpx
+pip install -r requirements.txt
+
+# Configurer les variables d'environnement
+cp .env.example .env
+# Puis ouvrir .env et remplacer SECRET_KEY par une vraie clé aléatoire
 
 # Lancer le serveur
 uvicorn main:app --reload
@@ -46,28 +51,48 @@ uvicorn main:app --reload
 L'API est ensuite disponible sur `http://127.0.0.1:8000`.
 La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 
+## Variables d'environnement
+
+| Variable | Description | Obligatoire en prod |
+|----------|-------------|---------------------|
+| `SECRET_KEY` | Clé utilisée pour signer les JWT. Générer avec `python -c "import secrets; print(secrets.token_urlsafe(64))"` | Oui |
+
+En développement, une clé par défaut est utilisée mais elle est volontairement marquée comme non sécurisée — toujours la remplacer en production.
+
 ## Endpoints disponibles
 
 
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| GET | `/` | Page d'accueil de l'API |
-| GET | `/patients` | Liste tous les patients |
-| GET | `/patients/{id}` | Récupère un patient par son ID |
-| POST | `/patients` | Crée un nouveau patient (avec validation RAMQ) |
-| PUT | `/patients/{id}` | Modifie un patient existant |
-| DELETE | `/patients/{id}` | Supprime un patient |
-| GET | `/medecins` | Liste tous les médecins |
-| GET | `/medecins/{id}` | Récupère un médecin par son ID |
-| POST | `/medecins` | Crée un nouveau médecin (validation du numéro de permis) |
-| PUT | `/medecins/{id}` | Modifie un médecin existant |
-| DELETE | `/medecins/{id}` | Supprime un médecin |
-| GET | `/rendezvous` | Liste tous les rendez-vous |
-| GET | `/rendezvous/{id}` | Récupère un rendez-vous par son ID |
-| POST | `/rendezvous` | Crée un rendez-vous (en personne ou virtuel) |
-| PUT | `/rendezvous/{id}` | Modifie un rendez-vous existant |
-| DELETE | `/rendezvous/{id}` | Supprime un rendez-vous |
-| GET | `/medecins/{id}/creneaux?jour=YYYY-MM-DD` | Liste les créneaux libres d'un médecin pour une journée |
+### Authentification
+
+| Méthode | Endpoint | Accès | Description |
+|---------|----------|-------|-------------|
+| POST | `/auth/register` | Public | Crée un nouveau compte (rôle `admin` ou `medecin`) |
+| POST | `/auth/login` | Public | Échange email + mot de passe contre un JWT |
+| GET | `/auth/me` | Authentifié | Retourne le profil de l'utilisateur courant |
+
+Tous les endpoints ci-dessous (sauf `/`) requièrent un header `Authorization: Bearer <token>`.
+
+### Ressources
+
+| Méthode | Endpoint | Accès | Description |
+|---------|----------|-------|-------------|
+| GET | `/` | Public | Page d'accueil de l'API |
+| GET | `/patients` | Authentifié | Liste tous les patients |
+| GET | `/patients/{id}` | Authentifié | Récupère un patient par son ID |
+| POST | `/patients` | Admin | Crée un nouveau patient (avec validation RAMQ) |
+| PUT | `/patients/{id}` | Admin | Modifie un patient existant |
+| DELETE | `/patients/{id}` | Admin | Supprime un patient |
+| GET | `/medecins` | Authentifié | Liste tous les médecins |
+| GET | `/medecins/{id}` | Authentifié | Récupère un médecin par son ID |
+| POST | `/medecins` | Admin | Crée un nouveau médecin (validation du numéro de permis) |
+| PUT | `/medecins/{id}` | Admin | Modifie un médecin existant |
+| DELETE | `/medecins/{id}` | Admin | Supprime un médecin |
+| GET | `/rendezvous` | Authentifié | Liste tous les rendez-vous |
+| GET | `/rendezvous/{id}` | Authentifié | Récupère un rendez-vous par son ID |
+| POST | `/rendezvous` | Admin / médecin | Crée un rendez-vous (en personne ou virtuel) |
+| PUT | `/rendezvous/{id}` | Admin / médecin | Modifie un rendez-vous existant |
+| DELETE | `/rendezvous/{id}` | Admin / médecin | Supprime un rendez-vous |
+| GET | `/medecins/{id}/creneaux?jour=YYYY-MM-DD` | Authentifié | Liste les créneaux libres d'un médecin pour une journée |
 
 ## Roadmap
 ### Étape 1 — Setup et premiers endpoints
@@ -98,15 +123,28 @@ La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
 - [x] Règle d'annulation (24h à l'avance minimum)
 
 ### Étape 4 — Sécurité et tests
-- [ ] Authentification JWT
-- [ ] Système de rôles (admin, médecin)
+- [x] Authentification JWT (login, /me, hash bcrypt)
+- [x] Système de rôles (admin, médecin) avec dépendances FastAPI
 - [x] Tests unitaires avec Pytest
-- [ ] Tests d'intégration
+- [x] Tests d'intégration (scénario end-to-end inscription → connexion → création RDV)
 
 ### Étape 5 — Déploiement
-- [ ] Déployer sur Render ou Railway
-- [ ] Documentation finale
+- [x] Préparation pour Render (`render.yaml`, `Procfile`, `requirements.txt`)
+- [x] Documentation des variables d'environnement
+- [x] Documentation finale
+- [ ] Déploiement effectif sur Render (à faire depuis le dashboard Render)
 - [ ] Captures d'écran de Swagger UI
+
+### Déploiement sur Render
+
+Le projet est prêt à être déployé sur [Render](https://render.com) :
+
+1. Pousser le code sur GitHub
+2. Sur Render : New → Blueprint → connecter le repo
+3. Render détecte automatiquement `render.yaml` et provisionne le service
+4. La variable `SECRET_KEY` est générée automatiquement par Render
+
+**Limitation à connaître :** SQLite sur le plan gratuit de Render n'est pas persistant (le disque est éphémère). Pour de la vraie production, migrer vers PostgreSQL en modifiant `database.py` et en ajoutant `psycopg2-binary` à `requirements.txt`.
 
 ## Ce que j'apprends en construisant ce projet
 
@@ -129,7 +167,7 @@ MIT
 
 ## Tests
 
-Le projet inclut une suite de **51 tests unitaires** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
+Le projet inclut une suite de **68 tests** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
 
 ```bash
 pytest -v
@@ -177,3 +215,16 @@ Tests actuellement couverts :
 - Libération du créneau quand un RDV est annulé
 - Calcul des créneaux disponibles pour un médecin sur une journée
 - Règle d'annulation 24h (testée avec mock du temps)
+
+**Authentification et rôles**
+- Inscription avec validation d'email et de longueur de mot de passe
+- Rejet des emails déjà utilisés
+- Connexion par email + mot de passe, retour d'un JWT
+- Refus avec mauvais mot de passe ou email inconnu
+- Endpoint `/auth/me` qui renvoie le profil
+- Endpoints protégés (401 sans token, 401 avec token invalide)
+- Endpoints admin-only refusés à un médecin (403)
+- Endpoints réservés au personnel médical accessibles aux médecins
+
+**Intégration**
+- Scénario end-to-end : inscription → connexion → création de RDV → lecture du profil

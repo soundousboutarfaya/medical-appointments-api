@@ -10,6 +10,7 @@ import main
 from main import app
 from database import Base, get_db
 import models
+from auth import hash_password
 
 
 # ===== SETUP : Base de données de test (en mémoire) =====
@@ -37,19 +38,52 @@ def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 
+# Client par défaut : pré-authentifié comme admin (fixture ci-dessous)
 client = TestClient(app)
+# Client anonyme : pour tester les cas 401 / 403
+client_anonyme = TestClient(app)
+# Client médecin : pour tester les restrictions admin-only
+client_medecin = TestClient(app)
 
 
-# ===== FIXTURE : préparer une DB fraîche pour chaque test =====
+# ===== FIXTURE : DB fraîche + admin et médecin de test à chaque test =====
 
 @pytest.fixture(autouse=True)
 def setup_database():
-    """
-    Avant chaque test : crée des tables vides
-    Après chaque test : supprime tout (DB fraîche pour le prochain)
-    """
     Base.metadata.create_all(bind=engine_test)
+
+    # Crée un admin et un médecin de test
+    db = TestingSessionLocal()
+    db.add(models.User(
+        email="admin@test.com",
+        hashed_password=hash_password("admin1234"),
+        role=models.RoleUtilisateur.admin,
+    ))
+    db.add(models.User(
+        email="medecin@test.com",
+        hashed_password=hash_password("medecin1234"),
+        role=models.RoleUtilisateur.medecin,
+    ))
+    db.commit()
+    db.close()
+
+    # Authentifie client (admin) et client_medecin
+    token_admin = client.post(
+        "/auth/login",
+        data={"username": "admin@test.com", "password": "admin1234"},
+    ).json()["access_token"]
+    client.headers["Authorization"] = f"Bearer {token_admin}"
+
+    token_medecin = client_medecin.post(
+        "/auth/login",
+        data={"username": "medecin@test.com", "password": "medecin1234"},
+    ).json()["access_token"]
+    client_medecin.headers["Authorization"] = f"Bearer {token_medecin}"
+
     yield
+
+    client.headers.pop("Authorization", None)
+    client_medecin.headers.pop("Authorization", None)
     Base.metadata.drop_all(bind=engine_test)
 
 
@@ -472,13 +506,15 @@ def test_double_booking_medecins_differents_accepte():
     assert response.status_code == 200
 
 
-def test_rdv_annule_libere_le_creneau():
+def test_rdv_annule_libere_le_creneau(monkeypatch):
     """Un RDV avec statut=annule ne bloque plus le créneau."""
     patient_id = creer_patient_test().json()["id"]
     medecin_id = creer_medecin_test().json()["id"]
     rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
 
-    # On annule le premier (date assez loin pour passer la règle 24h)
+    # On se place plusieurs jours avant le RDV pour que la règle 24h soit respectée
+    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 13, 9, 0))
+
     annulation = client.put(
         f"/rendezvous/{rdv_id}",
         json={
@@ -558,11 +594,13 @@ def test_creneaux_medecin_inexistant():
 
 # --- Règle d'annulation 24h ---
 
-def test_annulation_plus_de_24h_acceptee():
+def test_annulation_plus_de_24h_acceptee(monkeypatch):
     """RDV dans plus de 24h → annulation possible."""
     patient_id = creer_patient_test().json()["id"]
     medecin_id = creer_medecin_test().json()["id"]
     rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+
+    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 13, 9, 0))
 
     response = client.put(
         f"/rendezvous/{rdv_id}",
@@ -620,3 +658,194 @@ def test_modification_autre_que_annulation_pas_concernee_par_24h(monkeypatch):
         },
     )
     assert response.status_code == 200
+
+
+# ===== TESTS : ÉTAPE 4 — AUTHENTIFICATION ET RÔLES =====
+
+# --- Inscription ---
+
+def test_register_valide():
+    response = client_anonyme.post(
+        "/auth/register",
+        json={"email": "nouveau@test.com", "password": "secret123", "role": "medecin"},
+    )
+    assert response.status_code == 200
+    assert response.json()["email"] == "nouveau@test.com"
+    assert response.json()["role"] == "medecin"
+    assert "id" in response.json()
+    assert "password" not in response.json()
+    assert "hashed_password" not in response.json()
+
+
+def test_register_email_duplique():
+    client_anonyme.post(
+        "/auth/register",
+        json={"email": "double@test.com", "password": "secret123", "role": "medecin"},
+    )
+    response = client_anonyme.post(
+        "/auth/register",
+        json={"email": "double@test.com", "password": "autre456", "role": "medecin"},
+    )
+    assert response.status_code == 409
+
+
+def test_register_email_invalide():
+    response = client_anonyme.post(
+        "/auth/register",
+        json={"email": "pas-un-email", "password": "secret123", "role": "medecin"},
+    )
+    assert response.status_code == 422
+
+
+def test_register_mdp_trop_court():
+    response = client_anonyme.post(
+        "/auth/register",
+        json={"email": "court@test.com", "password": "abc", "role": "medecin"},
+    )
+    assert response.status_code == 422
+
+
+# --- Connexion ---
+
+def test_login_credentials_valides():
+    response = client_anonyme.post(
+        "/auth/login",
+        data={"username": "admin@test.com", "password": "admin1234"},
+    )
+    assert response.status_code == 200
+    assert "access_token" in response.json()
+    assert response.json()["token_type"] == "bearer"
+
+
+def test_login_mauvais_mot_de_passe():
+    response = client_anonyme.post(
+        "/auth/login",
+        data={"username": "admin@test.com", "password": "mauvais"},
+    )
+    assert response.status_code == 401
+
+
+def test_login_email_inconnu():
+    response = client_anonyme.post(
+        "/auth/login",
+        data={"username": "inconnu@test.com", "password": "peu importe"},
+    )
+    assert response.status_code == 401
+
+
+def test_me_retourne_profil_courant():
+    response = client.get("/auth/me")
+    assert response.status_code == 200
+    assert response.json()["email"] == "admin@test.com"
+    assert response.json()["role"] == "admin"
+
+
+# --- Protection des endpoints ---
+
+def test_endpoint_protege_sans_token_renvoie_401():
+    response = client_anonyme.get("/patients")
+    assert response.status_code == 401
+
+
+def test_endpoint_protege_avec_token_invalide_renvoie_401():
+    headers = {"Authorization": "Bearer token-bidon"}
+    response = client_anonyme.get("/patients", headers=headers)
+    assert response.status_code == 401
+
+
+def test_racine_reste_publique():
+    response = client_anonyme.get("/")
+    assert response.status_code == 200
+
+
+# --- Contrôle des rôles ---
+
+def test_medecin_peut_lire_patients():
+    response = client_medecin.get("/patients")
+    assert response.status_code == 200
+
+
+def test_medecin_ne_peut_pas_creer_patient():
+    response = client_medecin.post(
+        "/patients",
+        json={"nom": "X", "prenom": "Y", "age": 30, "numero_ramq": "TEST12345678"},
+    )
+    assert response.status_code == 403
+
+
+def test_medecin_ne_peut_pas_creer_medecin():
+    response = client_medecin.post(
+        "/medecins",
+        json={"nom": "X", "prenom": "Y", "specialite": "z", "numero_permis": "99999"},
+    )
+    assert response.status_code == 403
+
+
+def test_medecin_peut_creer_rdv():
+    """Le personnel médical (admin ou médecin) peut créer un RDV."""
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+    response = client_medecin.post(
+        "/rendezvous",
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T10:00:00",
+            "mode": "en_personne",
+        },
+    )
+    assert response.status_code == 200
+
+
+def test_admin_peut_tout():
+    """Sanity check : l'admin peut créer patient, médecin et RDV."""
+    p = creer_patient_test()
+    m = creer_medecin_test()
+    r = creer_rdv_test(p.json()["id"], m.json()["id"])
+    assert p.status_code == 200
+    assert m.status_code == 200
+    assert r.status_code == 200
+
+
+# --- Test d'intégration end-to-end ---
+
+def test_e2e_inscription_login_creation_rdv():
+    """Scénario complet : un nouveau médecin s'inscrit, se connecte, crée un RDV."""
+    # 1. Inscription
+    inscription = client_anonyme.post(
+        "/auth/register",
+        json={"email": "nouveau.medecin@test.com", "password": "monpass123", "role": "medecin"},
+    )
+    assert inscription.status_code == 200
+
+    # 2. Connexion
+    login = client_anonyme.post(
+        "/auth/login",
+        data={"username": "nouveau.medecin@test.com", "password": "monpass123"},
+    )
+    assert login.status_code == 200
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 3. Prérequis créés par l'admin (patient + médecin pour la fiche)
+    patient_id = creer_patient_test().json()["id"]
+    medecin_id = creer_medecin_test().json()["id"]
+
+    # 4. Le médecin nouvellement inscrit crée un RDV
+    creation = client_anonyme.post(
+        "/rendezvous",
+        headers=headers,
+        json={
+            "patient_id": patient_id,
+            "medecin_id": medecin_id,
+            "date_heure": "2026-05-15T14:00:00",
+            "mode": "virtuel",
+        },
+    )
+    assert creation.status_code == 200
+    assert creation.json()["mode"] == "virtuel"
+
+    # 5. Profil correct
+    me = client_anonyme.get("/auth/me", headers=headers)
+    assert me.json()["email"] == "nouveau.medecin@test.com"
+    assert me.json()["role"] == "medecin"
