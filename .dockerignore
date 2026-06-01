@@ -1,0 +1,14 @@
+venv
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+.git
+.gitignore
+.env
+app.db
+*.sqlite
+*.sqlite3
+docs
+*.md
+!README.md

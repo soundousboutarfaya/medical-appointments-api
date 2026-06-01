@@ -1,0 +1,16 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-dev-only-insecure-change-me}
+      - PORT=8000
+      - DATABASE_URL=sqlite:////app/data/app.db
+    volumes:
+      # Persist the SQLite database across container restarts
+      - api-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  api-data:

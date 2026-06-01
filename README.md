@@ -1,5 +1,11 @@
 # Medical Appointments API
 
+[![CI](https://github.com/soundousboutarfaya/medical-appointments-api/actions/workflows/ci.yml/badge.svg)](https://github.com/soundousboutarfaya/medical-appointments-api/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Tests](https://img.shields.io/badge/tests-69%20passing-success)](test_main.py)
+
 A REST API for managing medical appointments, built in Python with FastAPI.
 
 A personal backend-development project, inspired by my administrative experience in medical settings (clinics, hospitals).
@@ -17,6 +23,14 @@ I worked for several years as an administrative assistant in clinics and hospita
 - **SQLite** (then **PostgreSQL** later) — database
 - **Pytest** — automated tests
 - **python-jose** + **passlib/bcrypt** — JWT authentication and password hashing
+
+## Screenshots
+
+> Add your own captures to `docs/screenshots/` (see [docs/screenshots/README.md](docs/screenshots/README.md)).
+
+| Swagger UI | Dashboard | Appointments |
+| ---------- | --------- | ------------ |
+| ![Swagger UI](docs/screenshots/swagger.png) | ![Dashboard](docs/screenshots/dashboard.png) | ![Appointments](docs/screenshots/appointments.png) |
 
 ## Installation
 
@@ -50,6 +64,22 @@ uvicorn main:app --reload
 
 The API is then available at `http://127.0.0.1:8000`.
 The interactive Swagger UI documentation is at `http://127.0.0.1:8000/docs`.
+
+## Docker
+
+```bash
+# Build and run with Docker Compose
+SECRET_KEY=your-secret docker compose up --build
+```
+
+Or with plain Docker:
+
+```bash
+docker build -t medical-appointments-api .
+docker run -p 8000:8000 -e SECRET_KEY=your-secret medical-appointments-api
+```
+
+The API is then available at `http://127.0.0.1:8000`.
 
 ## Environment variables
 
