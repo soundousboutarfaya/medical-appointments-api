@@ -13,21 +13,21 @@ import models
 from auth import hash_password
 
 
-# ===== SETUP : Base de données de test (en mémoire) =====
+# ===== SETUP: in-memory test database =====
 
-# DB SQLite en mémoire (disparaît à la fin des tests)
+# In-memory SQLite DB (discarded when tests finish)
 SQLALCHEMY_DATABASE_URL_TEST = "sqlite:///:memory:"
 
 engine_test = create_engine(
     SQLALCHEMY_DATABASE_URL_TEST,
     connect_args={"check_same_thread": False},
-    poolclass=StaticPool,  # Important pour SQLite en mémoire
+    poolclass=StaticPool,  # Required for in-memory SQLite
 )
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine_test)
 
 
-# Override de get_db : nos tests utilisent la DB de test au lieu de la vraie
+# Override get_db: tests use the test DB instead of the real one
 def override_get_db():
     db = TestingSessionLocal()
     try:
@@ -38,84 +38,84 @@ def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 
-# Client par défaut : pré-authentifié comme admin (fixture ci-dessous)
+# Default client: pre-authenticated as admin (see fixture below)
 client = TestClient(app)
-# Client anonyme : pour tester les cas 401 / 403
-client_anonyme = TestClient(app)
-# Client médecin : pour tester les restrictions admin-only
-client_medecin = TestClient(app)
+# Anonymous client: to test the 401 / 403 cases
+client_anonymous = TestClient(app)
+# Doctor client: to test admin-only restrictions
+client_doctor = TestClient(app)
 
 
-# ===== FIXTURE : DB fraîche + admin et médecin de test à chaque test =====
+# ===== FIXTURE: fresh DB + test admin and doctor for each test =====
 
 @pytest.fixture(autouse=True)
 def setup_database():
     Base.metadata.create_all(bind=engine_test)
 
-    # Crée un admin et un médecin de test
+    # Create a test admin and a test doctor
     db = TestingSessionLocal()
     db.add(models.User(
         email="admin@test.com",
         hashed_password=hash_password("admin1234"),
-        role=models.RoleUtilisateur.admin,
+        role=models.UserRole.admin,
     ))
     db.add(models.User(
-        email="medecin@test.com",
-        hashed_password=hash_password("medecin1234"),
-        role=models.RoleUtilisateur.medecin,
+        email="doctor@test.com",
+        hashed_password=hash_password("doctor1234"),
+        role=models.UserRole.doctor,
     ))
     db.commit()
     db.close()
 
-    # Authentifie client (admin) et client_medecin
+    # Authenticate client (admin) and client_doctor
     token_admin = client.post(
         "/auth/login",
         data={"username": "admin@test.com", "password": "admin1234"},
     ).json()["access_token"]
     client.headers["Authorization"] = f"Bearer {token_admin}"
 
-    token_medecin = client_medecin.post(
+    token_doctor = client_doctor.post(
         "/auth/login",
-        data={"username": "medecin@test.com", "password": "medecin1234"},
+        data={"username": "doctor@test.com", "password": "doctor1234"},
     ).json()["access_token"]
-    client_medecin.headers["Authorization"] = f"Bearer {token_medecin}"
+    client_doctor.headers["Authorization"] = f"Bearer {token_doctor}"
 
     yield
 
     client.headers.pop("Authorization", None)
-    client_medecin.headers.pop("Authorization", None)
+    client_doctor.headers.pop("Authorization", None)
     Base.metadata.drop_all(bind=engine_test)
 
 
-# ===== HELPER : créer un patient pour les tests =====
+# ===== HELPERS: create entities for tests =====
 
-def creer_patient_test(nom="Tremblay", prenom="Marie", age=45, ramq="TREM45120115"):
-    """Helper pour créer un patient dans les tests."""
+def create_test_patient(last_name="Tremblay", first_name="Marie", age=45, health_card="TREM45120115"):
+    """Helper to create a patient in tests."""
     return client.post(
         "/patients",
-        json={"nom": nom, "prenom": prenom, "age": age, "numero_ramq": ramq},
+        json={"last_name": last_name, "first_name": first_name, "age": age, "health_card_number": health_card},
     )
 
 
-def creer_medecin_test(nom="Lavoie", prenom="Pierre", specialite="cardiologie", permis="12345"):
-    """Helper pour créer un médecin dans les tests."""
+def create_test_doctor(last_name="Lavoie", first_name="Pierre", specialty="cardiology", license_number="12345"):
+    """Helper to create a doctor in tests."""
     return client.post(
-        "/medecins",
-        json={"nom": nom, "prenom": prenom, "specialite": specialite, "numero_permis": permis},
+        "/doctors",
+        json={"last_name": last_name, "first_name": first_name, "specialty": specialty, "license_number": license_number},
     )
 
 
-def creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00",
-                   motif="Consultation annuelle", statut="prevu", mode="en_personne"):
-    """Helper pour créer un rendez-vous dans les tests."""
+def create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00",
+                            reason="Annual checkup", status="scheduled", mode="in_person"):
+    """Helper to create an appointment in tests."""
     return client.post(
-        "/rendezvous",
+        "/appointments",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": date_heure,
-            "motif": motif,
-            "statut": statut,
+            "doctor_id": doctor_id,
+            "scheduled_at": scheduled_at,
+            "reason": reason,
+            "status": status,
             "mode": mode,
         },
     )
@@ -123,600 +123,600 @@ def creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00",
 
 # ===== TESTS =====
 
-def test_read_root_sert_le_front():
-    """La racine sert l'application front (HTML)."""
-    response = client_anonyme.get("/")
+def test_read_root_serves_frontend():
+    """The root serves the frontend application (HTML)."""
+    response = client_anonymous.get("/")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "<html" in response.text.lower()
 
 
 def test_health_check():
-    """Endpoint de santé pour le monitoring."""
-    response = client_anonyme.get("/api/health")
+    """Health endpoint for monitoring."""
+    response = client_anonymous.get("/api/health")
     assert response.status_code == 200
-    assert response.json() == {"message": "Bonjour, mon API fonctionne !"}
+    assert response.json() == {"message": "Hello, my API is running!"}
 
 
-def test_get_all_patients_vide():
-    """Au début, la liste des patients est vide."""
+def test_get_all_patients_empty():
+    """At first, the patient list is empty."""
     response = client.get("/patients")
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_get_all_patients_avec_donnees():
-    """Après création, on retrouve bien les patients."""
-    creer_patient_test()
+def test_get_all_patients_with_data():
+    """After creation, the patients are returned."""
+    create_test_patient()
     response = client.get("/patients")
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
-def test_create_patient_valide():
-    """Création d'un patient avec données valides."""
-    response = creer_patient_test()
+def test_create_patient_valid():
+    """Create a patient with valid data."""
+    response = create_test_patient()
     assert response.status_code == 200
-    assert response.json()["nom"] == "Tremblay"
+    assert response.json()["last_name"] == "Tremblay"
     assert "id" in response.json()
 
 
-def test_create_patient_ramq_invalide():
-    """RAMQ avec mauvais format est rejeté par Pydantic."""
+def test_create_patient_invalid_health_card():
+    """A health card number with a bad format is rejected by Pydantic."""
     response = client.post(
         "/patients",
-        json={"nom": "Test", "prenom": "T", "age": 30, "numero_ramq": "abc123"},
+        json={"last_name": "Test", "first_name": "T", "age": 30, "health_card_number": "abc123"},
     )
     assert response.status_code == 422
 
 
-def test_create_patient_sans_ramq():
-    """Patient sans RAMQ est rejeté (champ requis)."""
+def test_create_patient_without_health_card():
+    """A patient without a health card number is rejected (required field)."""
     response = client.post(
         "/patients",
-        json={"nom": "Test", "prenom": "T", "age": 30},
+        json={"last_name": "Test", "first_name": "T", "age": 30},
     )
     assert response.status_code == 422
 
 
-def test_create_patient_ramq_duplique():
-    """On ne peut pas créer 2 patients avec le même RAMQ."""
-    creer_patient_test()
-    response = creer_patient_test()  # Même RAMQ par défaut
+def test_create_patient_duplicate_health_card():
+    """You cannot create two patients with the same health card number."""
+    create_test_patient()
+    response = create_test_patient()  # Same default health card number
     assert response.status_code == 409
-    assert "déjà" in response.json()["detail"]
+    assert "already exists" in response.json()["detail"]
 
 
-def test_get_patient_by_id_existant():
-    """Récupération d'un patient existant."""
-    create_response = creer_patient_test()
+def test_get_patient_by_id_existing():
+    """Retrieve an existing patient."""
+    create_response = create_test_patient()
     patient_id = create_response.json()["id"]
 
     response = client.get(f"/patients/{patient_id}")
     assert response.status_code == 200
-    assert response.json()["nom"] == "Tremblay"
+    assert response.json()["last_name"] == "Tremblay"
 
 
-def test_get_patient_by_id_inexistant():
-    """Patient inexistant renvoie 404."""
+def test_get_patient_by_id_missing():
+    """A non-existent patient returns 404."""
     response = client.get("/patients/9999")
     assert response.status_code == 404
 
 
-def test_update_patient_existant():
-    """Modification d'un patient existant."""
-    create_response = creer_patient_test()
+def test_update_patient_existing():
+    """Update an existing patient."""
+    create_response = create_test_patient()
     patient_id = create_response.json()["id"]
 
     response = client.put(
         f"/patients/{patient_id}",
-        json={"nom": "Tremblay", "prenom": "Marie", "age": 46, "numero_ramq": "TREM45120115"},
+        json={"last_name": "Tremblay", "first_name": "Marie", "age": 46, "health_card_number": "TREM45120115"},
     )
     assert response.status_code == 200
     assert response.json()["age"] == 46
 
 
-def test_update_patient_inexistant():
-    """Modifier un patient qui n'existe pas renvoie 404."""
+def test_update_patient_missing():
+    """Updating a patient that does not exist returns 404."""
     response = client.put(
         "/patients/9999",
-        json={"nom": "Test", "prenom": "T", "age": 30, "numero_ramq": "TEST12345678"},
+        json={"last_name": "Test", "first_name": "T", "age": 30, "health_card_number": "TEST12345678"},
     )
     assert response.status_code == 404
 
 
-def test_update_patient_ramq_pris_par_autre():
-    """On ne peut pas prendre le RAMQ d'un autre patient."""
-    creer_patient_test(ramq="TREM45120115")
-    response_p2 = creer_patient_test(nom="Gagnon", prenom="Jean", age=67, ramq="GAGN23080742")
+def test_update_patient_health_card_taken_by_other():
+    """You cannot take another patient's health card number."""
+    create_test_patient(health_card="TREM45120115")
+    response_p2 = create_test_patient(last_name="Gagnon", first_name="Jean", age=67, health_card="GAGN23080742")
     p2_id = response_p2.json()["id"]
 
-    # Tente de mettre le RAMQ de p1 sur p2
+    # Try to set p1's health card number on p2
     response = client.put(
         f"/patients/{p2_id}",
-        json={"nom": "Gagnon", "prenom": "Jean", "age": 67, "numero_ramq": "TREM45120115"},
+        json={"last_name": "Gagnon", "first_name": "Jean", "age": 67, "health_card_number": "TREM45120115"},
     )
     assert response.status_code == 409
 
 
-def test_delete_patient_existant():
-    """Suppression d'un patient existant."""
-    create_response = creer_patient_test()
+def test_delete_patient_existing():
+    """Delete an existing patient."""
+    create_response = create_test_patient()
     patient_id = create_response.json()["id"]
 
     response = client.delete(f"/patients/{patient_id}")
     assert response.status_code == 200
     assert "message" in response.json()
 
-    # Vérifier qu'il a vraiment disparu
+    # Verify it is really gone
     get_response = client.get(f"/patients/{patient_id}")
     assert get_response.status_code == 404
 
 
-def test_delete_patient_inexistant():
-    """Supprimer un patient qui n'existe pas renvoie 404."""
+def test_delete_patient_missing():
+    """Deleting a patient that does not exist returns 404."""
     response = client.delete("/patients/9999")
     assert response.status_code == 404
 
 
-# ===== TESTS : MÉDECINS =====
+# ===== TESTS: DOCTORS =====
 
-def test_get_all_medecins_vide():
-    response = client.get("/medecins")
+def test_get_all_doctors_empty():
+    response = client.get("/doctors")
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_create_medecin_valide():
-    response = creer_medecin_test()
+def test_create_doctor_valid():
+    response = create_test_doctor()
     assert response.status_code == 200
-    assert response.json()["nom"] == "Lavoie"
-    assert response.json()["specialite"] == "cardiologie"
+    assert response.json()["last_name"] == "Lavoie"
+    assert response.json()["specialty"] == "cardiology"
     assert "id" in response.json()
 
 
-def test_create_medecin_permis_invalide():
-    """Numéro de permis ne respectant pas le format (5 chiffres)."""
+def test_create_doctor_invalid_license():
+    """License number that does not match the format (5 digits)."""
     response = client.post(
-        "/medecins",
-        json={"nom": "X", "prenom": "Y", "specialite": "z", "numero_permis": "abc"},
+        "/doctors",
+        json={"last_name": "X", "first_name": "Y", "specialty": "z", "license_number": "abc"},
     )
     assert response.status_code == 422
 
 
-def test_create_medecin_permis_duplique():
-    creer_medecin_test()
-    response = creer_medecin_test()
+def test_create_doctor_duplicate_license():
+    create_test_doctor()
+    response = create_test_doctor()
     assert response.status_code == 409
 
 
-def test_get_medecin_by_id_existant():
-    create_response = creer_medecin_test()
-    medecin_id = create_response.json()["id"]
-    response = client.get(f"/medecins/{medecin_id}")
+def test_get_doctor_by_id_existing():
+    create_response = create_test_doctor()
+    doctor_id = create_response.json()["id"]
+    response = client.get(f"/doctors/{doctor_id}")
     assert response.status_code == 200
-    assert response.json()["nom"] == "Lavoie"
+    assert response.json()["last_name"] == "Lavoie"
 
 
-def test_get_medecin_by_id_inexistant():
-    response = client.get("/medecins/9999")
+def test_get_doctor_by_id_missing():
+    response = client.get("/doctors/9999")
     assert response.status_code == 404
 
 
-def test_update_medecin_existant():
-    create_response = creer_medecin_test()
-    medecin_id = create_response.json()["id"]
+def test_update_doctor_existing():
+    create_response = create_test_doctor()
+    doctor_id = create_response.json()["id"]
     response = client.put(
-        f"/medecins/{medecin_id}",
-        json={"nom": "Lavoie", "prenom": "Pierre", "specialite": "neurologie", "numero_permis": "12345"},
+        f"/doctors/{doctor_id}",
+        json={"last_name": "Lavoie", "first_name": "Pierre", "specialty": "neurology", "license_number": "12345"},
     )
     assert response.status_code == 200
-    assert response.json()["specialite"] == "neurologie"
+    assert response.json()["specialty"] == "neurology"
 
 
-def test_update_medecin_inexistant():
+def test_update_doctor_missing():
     response = client.put(
-        "/medecins/9999",
-        json={"nom": "X", "prenom": "Y", "specialite": "z", "numero_permis": "12345"},
+        "/doctors/9999",
+        json={"last_name": "X", "first_name": "Y", "specialty": "z", "license_number": "12345"},
     )
     assert response.status_code == 404
 
 
-def test_delete_medecin_existant():
-    create_response = creer_medecin_test()
-    medecin_id = create_response.json()["id"]
-    response = client.delete(f"/medecins/{medecin_id}")
+def test_delete_doctor_existing():
+    create_response = create_test_doctor()
+    doctor_id = create_response.json()["id"]
+    response = client.delete(f"/doctors/{doctor_id}")
     assert response.status_code == 200
-    assert client.get(f"/medecins/{medecin_id}").status_code == 404
+    assert client.get(f"/doctors/{doctor_id}").status_code == 404
 
 
-def test_delete_medecin_inexistant():
-    response = client.delete("/medecins/9999")
+def test_delete_doctor_missing():
+    response = client.delete("/doctors/9999")
     assert response.status_code == 404
 
 
-# ===== TESTS : RENDEZ-VOUS =====
+# ===== TESTS: APPOINTMENTS =====
 
-def test_create_rdv_valide():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    response = creer_rdv_test(patient_id, medecin_id)
+def test_create_appointment_valid():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    response = create_test_appointment(patient_id, doctor_id)
     assert response.status_code == 200
     assert response.json()["patient_id"] == patient_id
-    assert response.json()["medecin_id"] == medecin_id
-    assert response.json()["mode"] == "en_personne"
-    assert response.json()["statut"] == "prevu"
+    assert response.json()["doctor_id"] == doctor_id
+    assert response.json()["mode"] == "in_person"
+    assert response.json()["status"] == "scheduled"
 
 
-def test_create_rdv_virtuel():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    response = creer_rdv_test(patient_id, medecin_id, mode="virtuel")
+def test_create_appointment_virtual():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    response = create_test_appointment(patient_id, doctor_id, mode="virtual")
     assert response.status_code == 200
-    assert response.json()["mode"] == "virtuel"
+    assert response.json()["mode"] == "virtual"
 
 
-def test_create_rdv_mode_invalide():
-    """Un mode autre que en_personne / virtuel est rejeté."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    response = creer_rdv_test(patient_id, medecin_id, mode="hologramme")
+def test_create_appointment_invalid_mode():
+    """A mode other than in_person / virtual is rejected."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    response = create_test_appointment(patient_id, doctor_id, mode="hologram")
     assert response.status_code == 422
 
 
-def test_create_rdv_patient_inexistant():
-    medecin_id = creer_medecin_test().json()["id"]
-    response = creer_rdv_test(9999, medecin_id)
+def test_create_appointment_missing_patient():
+    doctor_id = create_test_doctor().json()["id"]
+    response = create_test_appointment(9999, doctor_id)
     assert response.status_code == 404
     assert "Patient" in response.json()["detail"]
 
 
-def test_create_rdv_medecin_inexistant():
-    patient_id = creer_patient_test().json()["id"]
-    response = creer_rdv_test(patient_id, 9999)
+def test_create_appointment_missing_doctor():
+    patient_id = create_test_patient().json()["id"]
+    response = create_test_appointment(patient_id, 9999)
     assert response.status_code == 404
-    assert "Médecin" in response.json()["detail"]
+    assert "Doctor" in response.json()["detail"]
 
 
-def test_get_all_rdv():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    creer_rdv_test(patient_id, medecin_id)
-    response = client.get("/rendezvous")
+def test_get_all_appointments():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    create_test_appointment(patient_id, doctor_id)
+    response = client.get("/appointments")
     assert response.status_code == 200
     assert len(response.json()) == 1
 
 
-def test_get_rdv_by_id_inexistant():
-    response = client.get("/rendezvous/9999")
+def test_get_appointment_by_id_missing():
+    response = client.get("/appointments/9999")
     assert response.status_code == 404
 
 
-def test_update_rdv_statut():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    rdv_id = creer_rdv_test(patient_id, medecin_id).json()["id"]
+def test_update_appointment_status():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    appt_id = create_test_appointment(patient_id, doctor_id).json()["id"]
 
     response = client.put(
-        f"/rendezvous/{rdv_id}",
+        f"/appointments/{appt_id}",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T10:00:00",
-            "motif": "Consultation annuelle",
-            "statut": "confirme",
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T10:00:00",
+            "reason": "Annual checkup",
+            "status": "confirmed",
+            "mode": "in_person",
         },
     )
     assert response.status_code == 200
-    assert response.json()["statut"] == "confirme"
+    assert response.json()["status"] == "confirmed"
 
 
-def test_delete_rdv_existant():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    rdv_id = creer_rdv_test(patient_id, medecin_id).json()["id"]
-    response = client.delete(f"/rendezvous/{rdv_id}")
+def test_delete_appointment_existing():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    appt_id = create_test_appointment(patient_id, doctor_id).json()["id"]
+    response = client.delete(f"/appointments/{appt_id}")
     assert response.status_code == 200
-    assert client.get(f"/rendezvous/{rdv_id}").status_code == 404
+    assert client.get(f"/appointments/{appt_id}").status_code == 404
 
 
-def test_delete_patient_supprime_ses_rdv():
-    """Cascade : supprimer un patient supprime aussi ses rendez-vous."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    rdv_id = creer_rdv_test(patient_id, medecin_id).json()["id"]
+def test_delete_patient_deletes_their_appointments():
+    """Cascade: deleting a patient also deletes their appointments."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    appt_id = create_test_appointment(patient_id, doctor_id).json()["id"]
 
     client.delete(f"/patients/{patient_id}")
-    assert client.get(f"/rendezvous/{rdv_id}").status_code == 404
+    assert client.get(f"/appointments/{appt_id}").status_code == 404
 
 
-# ===== TESTS : ÉTAPE 3 — LOGIQUE MÉTIER =====
-# Note : 2026-05-15 est un vendredi. 2026-05-16 = samedi, 2026-05-18 = lundi.
+# ===== TESTS: STEP 3 — BUSINESS LOGIC =====
+# Note: 2026-05-15 is a Friday. 2026-05-16 = Saturday, 2026-05-18 = Monday.
 
-# --- Horaires d'ouverture ---
+# --- Opening hours ---
 
-def test_rdv_avant_ouverture_refuse():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T07:00:00")
+def test_appointment_before_opening_rejected():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    response = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T07:00:00")
     assert response.status_code == 400
-    assert "8h" in response.json()["detail"]
+    assert "8:00" in response.json()["detail"]
 
 
-def test_rdv_apres_fermeture_refuse():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T18:30:00")
+def test_appointment_after_closing_rejected():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    response = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T18:30:00")
     assert response.status_code == 400
 
 
-def test_rdv_qui_deborde_apres_18h_refuse():
-    """Un RDV de 60 min commençant à 17h30 finit à 18h30 → doit être refusé."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
+def test_appointment_overflowing_past_18_rejected():
+    """A 60-min appointment starting at 17:30 ends at 18:30 -> must be rejected."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
     response = client.post(
-        "/rendezvous",
+        "/appointments",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T17:30:00",
-            "duree_minutes": 60,
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T17:30:00",
+            "duration_minutes": 60,
+            "mode": "in_person",
         },
     )
     assert response.status_code == 400
 
 
-def test_rdv_weekend_refuse():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-16T10:00:00")
+def test_appointment_weekend_rejected():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    response = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-16T10:00:00")
     assert response.status_code == 400
-    assert "week-end" in response.json()["detail"]
+    assert "weekend" in response.json()["detail"]
 
 
 # --- Double-booking ---
 
-def test_double_booking_meme_heure_refuse():
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
-    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+def test_double_booking_same_time_rejected():
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00")
+    response = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00")
     assert response.status_code == 409
 
 
-def test_double_booking_chevauchement_refuse():
-    """RDV de 30 min à 10h → un autre RDV à 10h15 chevauche."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
-    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:15:00")
+def test_double_booking_overlap_rejected():
+    """A 30-min appointment at 10:00 -> another appointment at 10:15 overlaps."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00")
+    response = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:15:00")
     assert response.status_code == 409
 
 
-def test_rdv_consecutifs_acceptes():
-    """RDV à 10h00 (30 min) puis à 10h30 → pas de chevauchement."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
-    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:30:00")
+def test_consecutive_appointments_accepted():
+    """Appointment at 10:00 (30 min) then at 10:30 -> no overlap."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00")
+    response = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:30:00")
     assert response.status_code == 200
 
 
-def test_double_booking_medecins_differents_accepte():
-    """Deux médecins peuvent avoir un RDV à la même heure."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin1_id = creer_medecin_test().json()["id"]
-    medecin2_id = creer_medecin_test(nom="Roy", prenom="Jean", permis="67890").json()["id"]
-    creer_rdv_test(patient_id, medecin1_id, date_heure="2026-05-15T10:00:00")
-    response = creer_rdv_test(patient_id, medecin2_id, date_heure="2026-05-15T10:00:00")
+def test_double_booking_different_doctors_accepted():
+    """Two doctors can have an appointment at the same time."""
+    patient_id = create_test_patient().json()["id"]
+    doctor1_id = create_test_doctor().json()["id"]
+    doctor2_id = create_test_doctor(last_name="Roy", first_name="Jean", license_number="67890").json()["id"]
+    create_test_appointment(patient_id, doctor1_id, scheduled_at="2026-05-15T10:00:00")
+    response = create_test_appointment(patient_id, doctor2_id, scheduled_at="2026-05-15T10:00:00")
     assert response.status_code == 200
 
 
-def test_rdv_annule_libere_le_creneau(monkeypatch):
-    """Un RDV avec statut=annule ne bloque plus le créneau."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+def test_cancelled_appointment_frees_the_slot(monkeypatch):
+    """An appointment with status=cancelled no longer blocks the slot."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    appt_id = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00").json()["id"]
 
-    # On se place plusieurs jours avant le RDV pour que la règle 24h soit respectée
-    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 13, 9, 0))
+    # Move "now" several days before the appointment so the 24h rule is satisfied
+    monkeypatch.setattr(main, "_now", lambda: datetime(2026, 5, 13, 9, 0))
 
-    annulation = client.put(
-        f"/rendezvous/{rdv_id}",
+    cancellation = client.put(
+        f"/appointments/{appt_id}",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T10:00:00",
-            "statut": "annule",
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T10:00:00",
+            "status": "cancelled",
+            "mode": "in_person",
         },
     )
-    assert annulation.status_code == 200
+    assert cancellation.status_code == 200
 
-    # Un autre RDV peut maintenant prendre la place
-    response = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+    # Another appointment can now take the slot
+    response = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00")
     assert response.status_code == 200
 
 
-# --- Créneaux disponibles ---
+# --- Available slots ---
 
-def test_creneaux_journee_vide():
-    """Un médecin sans RDV → tous les créneaux 8h à 17h30 disponibles (20 créneaux de 30 min)."""
-    medecin_id = creer_medecin_test().json()["id"]
-    response = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-15")
+def test_slots_empty_day():
+    """A doctor with no appointments -> all slots from 8:00 to 17:30 available (20 slots of 30 min)."""
+    doctor_id = create_test_doctor().json()["id"]
+    response = client.get(f"/doctors/{doctor_id}/slots?day=2026-05-15")
     assert response.status_code == 200
     data = response.json()
     assert data["date"] == "2026-05-15"
-    assert len(data["creneaux_disponibles"]) == 20
-    assert data["creneaux_disponibles"][0] == "08:00"
-    assert data["creneaux_disponibles"][-1] == "17:30"
+    assert len(data["available_slots"]) == 20
+    assert data["available_slots"][0] == "08:00"
+    assert data["available_slots"][-1] == "17:30"
 
 
-def test_creneaux_avec_rdv_pris():
-    """Un RDV à 10h occupe le créneau de 10h00."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00")
+def test_slots_with_booked_appointment():
+    """An appointment at 10:00 occupies the 10:00 slot."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00")
 
-    response = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-15")
+    response = client.get(f"/doctors/{doctor_id}/slots?day=2026-05-15")
     assert response.status_code == 200
-    creneaux = response.json()["creneaux_disponibles"]
-    assert "10:00" not in creneaux
-    assert "09:30" in creneaux
-    assert "10:30" in creneaux
+    slots = response.json()["available_slots"]
+    assert "10:00" not in slots
+    assert "09:30" in slots
+    assert "10:30" in slots
 
 
-def test_creneaux_rdv_long_bloque_plusieurs_creneaux():
-    """Un RDV de 60 min à 10h bloque les créneaux 10h00 et 10h30."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
+def test_slots_long_appointment_blocks_several_slots():
+    """A 60-min appointment at 10:00 blocks the 10:00 and 10:30 slots."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
     client.post(
-        "/rendezvous",
+        "/appointments",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T10:00:00",
-            "duree_minutes": 60,
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T10:00:00",
+            "duration_minutes": 60,
+            "mode": "in_person",
         },
     )
-    creneaux = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-15").json()["creneaux_disponibles"]
-    assert "10:00" not in creneaux
-    assert "10:30" not in creneaux
-    assert "11:00" in creneaux
+    slots = client.get(f"/doctors/{doctor_id}/slots?day=2026-05-15").json()["available_slots"]
+    assert "10:00" not in slots
+    assert "10:30" not in slots
+    assert "11:00" in slots
 
 
-def test_creneaux_weekend_vide():
-    medecin_id = creer_medecin_test().json()["id"]
-    response = client.get(f"/medecins/{medecin_id}/creneaux?jour=2026-05-16")
+def test_slots_weekend_empty():
+    doctor_id = create_test_doctor().json()["id"]
+    response = client.get(f"/doctors/{doctor_id}/slots?day=2026-05-16")
     assert response.status_code == 200
-    assert response.json()["creneaux_disponibles"] == []
+    assert response.json()["available_slots"] == []
 
 
-def test_creneaux_medecin_inexistant():
-    response = client.get("/medecins/9999/creneaux?jour=2026-05-15")
+def test_slots_missing_doctor():
+    response = client.get("/doctors/9999/slots?day=2026-05-15")
     assert response.status_code == 404
 
 
-# --- Règle d'annulation 24h ---
+# --- 24h cancellation rule ---
 
-def test_annulation_plus_de_24h_acceptee(monkeypatch):
-    """RDV dans plus de 24h → annulation possible."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+def test_cancellation_more_than_24h_accepted(monkeypatch):
+    """Appointment more than 24h away -> cancellation allowed."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    appt_id = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00").json()["id"]
 
-    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 13, 9, 0))
+    monkeypatch.setattr(main, "_now", lambda: datetime(2026, 5, 13, 9, 0))
 
     response = client.put(
-        f"/rendezvous/{rdv_id}",
+        f"/appointments/{appt_id}",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T10:00:00",
-            "statut": "annule",
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T10:00:00",
+            "status": "cancelled",
+            "mode": "in_person",
         },
     )
     assert response.status_code == 200
-    assert response.json()["statut"] == "annule"
+    assert response.json()["status"] == "cancelled"
 
 
-def test_annulation_moins_de_24h_refusee(monkeypatch):
-    """RDV dans moins de 24h → annulation refusée (400)."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+def test_cancellation_less_than_24h_rejected(monkeypatch):
+    """Appointment less than 24h away -> cancellation rejected (400)."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    appt_id = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00").json()["id"]
 
-    # On simule "maintenant = 14 mai 2026 15h" → RDV est dans 19h, donc moins de 24h
-    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 14, 15, 0))
+    # Simulate "now = May 14, 2026 at 15:00" -> appointment is in 19h, so less than 24h
+    monkeypatch.setattr(main, "_now", lambda: datetime(2026, 5, 14, 15, 0))
 
     response = client.put(
-        f"/rendezvous/{rdv_id}",
+        f"/appointments/{appt_id}",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T10:00:00",
-            "statut": "annule",
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T10:00:00",
+            "status": "cancelled",
+            "mode": "in_person",
         },
     )
     assert response.status_code == 400
     assert "24h" in response.json()["detail"]
 
 
-def test_modification_autre_que_annulation_pas_concernee_par_24h(monkeypatch):
-    """Confirmer un RDV à moins de 24h doit rester possible."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    rdv_id = creer_rdv_test(patient_id, medecin_id, date_heure="2026-05-15T10:00:00").json()["id"]
+def test_change_other_than_cancellation_not_subject_to_24h(monkeypatch):
+    """Confirming an appointment less than 24h away must still be possible."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    appt_id = create_test_appointment(patient_id, doctor_id, scheduled_at="2026-05-15T10:00:00").json()["id"]
 
-    monkeypatch.setattr(main, "_maintenant", lambda: datetime(2026, 5, 14, 15, 0))
+    monkeypatch.setattr(main, "_now", lambda: datetime(2026, 5, 14, 15, 0))
 
     response = client.put(
-        f"/rendezvous/{rdv_id}",
+        f"/appointments/{appt_id}",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T10:00:00",
-            "statut": "confirme",
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T10:00:00",
+            "status": "confirmed",
+            "mode": "in_person",
         },
     )
     assert response.status_code == 200
 
 
-# ===== TESTS : ÉTAPE 4 — AUTHENTIFICATION ET RÔLES =====
+# ===== TESTS: STEP 4 — AUTHENTICATION AND ROLES =====
 
-# --- Inscription ---
+# --- Registration ---
 
-def test_register_valide():
-    response = client_anonyme.post(
+def test_register_valid():
+    response = client_anonymous.post(
         "/auth/register",
-        json={"email": "nouveau@test.com", "password": "secret123", "role": "medecin"},
+        json={"email": "new@test.com", "password": "secret123", "role": "doctor"},
     )
     assert response.status_code == 200
-    assert response.json()["email"] == "nouveau@test.com"
-    assert response.json()["role"] == "medecin"
+    assert response.json()["email"] == "new@test.com"
+    assert response.json()["role"] == "doctor"
     assert "id" in response.json()
     assert "password" not in response.json()
     assert "hashed_password" not in response.json()
 
 
-def test_register_email_duplique():
-    client_anonyme.post(
+def test_register_duplicate_email():
+    client_anonymous.post(
         "/auth/register",
-        json={"email": "double@test.com", "password": "secret123", "role": "medecin"},
+        json={"email": "dup@test.com", "password": "secret123", "role": "doctor"},
     )
-    response = client_anonyme.post(
+    response = client_anonymous.post(
         "/auth/register",
-        json={"email": "double@test.com", "password": "autre456", "role": "medecin"},
+        json={"email": "dup@test.com", "password": "other456", "role": "doctor"},
     )
     assert response.status_code == 409
 
 
-def test_register_email_invalide():
-    response = client_anonyme.post(
+def test_register_invalid_email():
+    response = client_anonymous.post(
         "/auth/register",
-        json={"email": "pas-un-email", "password": "secret123", "role": "medecin"},
+        json={"email": "not-an-email", "password": "secret123", "role": "doctor"},
     )
     assert response.status_code == 422
 
 
-def test_register_mdp_trop_court():
-    response = client_anonyme.post(
+def test_register_password_too_short():
+    response = client_anonymous.post(
         "/auth/register",
-        json={"email": "court@test.com", "password": "abc", "role": "medecin"},
+        json={"email": "short@test.com", "password": "abc", "role": "doctor"},
     )
     assert response.status_code == 422
 
 
-# --- Connexion ---
+# --- Login ---
 
-def test_login_credentials_valides():
-    response = client_anonyme.post(
+def test_login_valid_credentials():
+    response = client_anonymous.post(
         "/auth/login",
         data={"username": "admin@test.com", "password": "admin1234"},
     )
@@ -725,135 +725,135 @@ def test_login_credentials_valides():
     assert response.json()["token_type"] == "bearer"
 
 
-def test_login_mauvais_mot_de_passe():
-    response = client_anonyme.post(
+def test_login_wrong_password():
+    response = client_anonymous.post(
         "/auth/login",
-        data={"username": "admin@test.com", "password": "mauvais"},
+        data={"username": "admin@test.com", "password": "wrong"},
     )
     assert response.status_code == 401
 
 
-def test_login_email_inconnu():
-    response = client_anonyme.post(
+def test_login_unknown_email():
+    response = client_anonymous.post(
         "/auth/login",
-        data={"username": "inconnu@test.com", "password": "peu importe"},
+        data={"username": "unknown@test.com", "password": "whatever"},
     )
     assert response.status_code == 401
 
 
-def test_me_retourne_profil_courant():
+def test_me_returns_current_profile():
     response = client.get("/auth/me")
     assert response.status_code == 200
     assert response.json()["email"] == "admin@test.com"
     assert response.json()["role"] == "admin"
 
 
-# --- Protection des endpoints ---
+# --- Endpoint protection ---
 
-def test_endpoint_protege_sans_token_renvoie_401():
-    response = client_anonyme.get("/patients")
+def test_protected_endpoint_without_token_returns_401():
+    response = client_anonymous.get("/patients")
     assert response.status_code == 401
 
 
-def test_endpoint_protege_avec_token_invalide_renvoie_401():
-    headers = {"Authorization": "Bearer token-bidon"}
-    response = client_anonyme.get("/patients", headers=headers)
+def test_protected_endpoint_with_invalid_token_returns_401():
+    headers = {"Authorization": "Bearer fake-token"}
+    response = client_anonymous.get("/patients", headers=headers)
     assert response.status_code == 401
 
 
-def test_racine_reste_publique():
-    response = client_anonyme.get("/")
+def test_root_stays_public():
+    response = client_anonymous.get("/")
     assert response.status_code == 200
 
 
-# --- Contrôle des rôles ---
+# --- Role control ---
 
-def test_medecin_peut_lire_patients():
-    response = client_medecin.get("/patients")
+def test_doctor_can_read_patients():
+    response = client_doctor.get("/patients")
     assert response.status_code == 200
 
 
-def test_medecin_ne_peut_pas_creer_patient():
-    response = client_medecin.post(
+def test_doctor_cannot_create_patient():
+    response = client_doctor.post(
         "/patients",
-        json={"nom": "X", "prenom": "Y", "age": 30, "numero_ramq": "TEST12345678"},
+        json={"last_name": "X", "first_name": "Y", "age": 30, "health_card_number": "TEST12345678"},
     )
     assert response.status_code == 403
 
 
-def test_medecin_ne_peut_pas_creer_medecin():
-    response = client_medecin.post(
-        "/medecins",
-        json={"nom": "X", "prenom": "Y", "specialite": "z", "numero_permis": "99999"},
+def test_doctor_cannot_create_doctor():
+    response = client_doctor.post(
+        "/doctors",
+        json={"last_name": "X", "first_name": "Y", "specialty": "z", "license_number": "99999"},
     )
     assert response.status_code == 403
 
 
-def test_medecin_peut_creer_rdv():
-    """Le personnel médical (admin ou médecin) peut créer un RDV."""
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
-    response = client_medecin.post(
-        "/rendezvous",
+def test_doctor_can_create_appointment():
+    """Medical staff (admin or doctor) can create an appointment."""
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
+    response = client_doctor.post(
+        "/appointments",
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T10:00:00",
-            "mode": "en_personne",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T10:00:00",
+            "mode": "in_person",
         },
     )
     assert response.status_code == 200
 
 
-def test_admin_peut_tout():
-    """Sanity check : l'admin peut créer patient, médecin et RDV."""
-    p = creer_patient_test()
-    m = creer_medecin_test()
-    r = creer_rdv_test(p.json()["id"], m.json()["id"])
+def test_admin_can_do_everything():
+    """Sanity check: the admin can create patient, doctor and appointment."""
+    p = create_test_patient()
+    d = create_test_doctor()
+    a = create_test_appointment(p.json()["id"], d.json()["id"])
     assert p.status_code == 200
-    assert m.status_code == 200
-    assert r.status_code == 200
+    assert d.status_code == 200
+    assert a.status_code == 200
 
 
-# --- Test d'intégration end-to-end ---
+# --- End-to-end integration test ---
 
-def test_e2e_inscription_login_creation_rdv():
-    """Scénario complet : un nouveau médecin s'inscrit, se connecte, crée un RDV."""
-    # 1. Inscription
-    inscription = client_anonyme.post(
+def test_e2e_register_login_create_appointment():
+    """Full scenario: a new doctor registers, logs in, creates an appointment."""
+    # 1. Registration
+    registration = client_anonymous.post(
         "/auth/register",
-        json={"email": "nouveau.medecin@test.com", "password": "monpass123", "role": "medecin"},
+        json={"email": "new.doctor@test.com", "password": "mypass123", "role": "doctor"},
     )
-    assert inscription.status_code == 200
+    assert registration.status_code == 200
 
-    # 2. Connexion
-    login = client_anonyme.post(
+    # 2. Login
+    login = client_anonymous.post(
         "/auth/login",
-        data={"username": "nouveau.medecin@test.com", "password": "monpass123"},
+        data={"username": "new.doctor@test.com", "password": "mypass123"},
     )
     assert login.status_code == 200
     token = login.json()["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # 3. Prérequis créés par l'admin (patient + médecin pour la fiche)
-    patient_id = creer_patient_test().json()["id"]
-    medecin_id = creer_medecin_test().json()["id"]
+    # 3. Prerequisites created by the admin (patient + doctor record)
+    patient_id = create_test_patient().json()["id"]
+    doctor_id = create_test_doctor().json()["id"]
 
-    # 4. Le médecin nouvellement inscrit crée un RDV
-    creation = client_anonyme.post(
-        "/rendezvous",
+    # 4. The newly registered doctor creates an appointment
+    creation = client_anonymous.post(
+        "/appointments",
         headers=headers,
         json={
             "patient_id": patient_id,
-            "medecin_id": medecin_id,
-            "date_heure": "2026-05-15T14:00:00",
-            "mode": "virtuel",
+            "doctor_id": doctor_id,
+            "scheduled_at": "2026-05-15T14:00:00",
+            "mode": "virtual",
         },
     )
     assert creation.status_code == 200
-    assert creation.json()["mode"] == "virtuel"
+    assert creation.json()["mode"] == "virtual"
 
-    # 5. Profil correct
-    me = client_anonyme.get("/auth/me", headers=headers)
-    assert me.json()["email"] == "nouveau.medecin@test.com"
-    assert me.json()["role"] == "medecin"
+    # 5. Correct profile
+    me = client_anonymous.get("/auth/me", headers=headers)
+    assert me.json()["email"] == "new.doctor@test.com"
+    assert me.json()["role"] == "doctor"

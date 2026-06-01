@@ -6,21 +6,21 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
-class StatutRendezVous(str, enum.Enum):
-    prevu = "prevu"
-    confirme = "confirme"
-    annule = "annule"
-    complete = "complete"
+class AppointmentStatus(str, enum.Enum):
+    scheduled = "scheduled"
+    confirmed = "confirmed"
+    cancelled = "cancelled"
+    completed = "completed"
 
 
-class ModeConsultation(str, enum.Enum):
-    en_personne = "en_personne"
-    virtuel = "virtuel"
+class ConsultationMode(str, enum.Enum):
+    in_person = "in_person"
+    virtual = "virtual"
 
 
-class RoleUtilisateur(str, enum.Enum):
+class UserRole(str, enum.Enum):
     admin = "admin"
-    medecin = "medecin"
+    doctor = "doctor"
 
 
 class User(Base):
@@ -29,56 +29,56 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, nullable=False, index=True)
     hashed_password = Column(String, nullable=False)
-    role = Column(Enum(RoleUtilisateur), nullable=False)
+    role = Column(Enum(UserRole), nullable=False)
 
 
 class Patient(Base):
     __tablename__ = "patients"
 
     id = Column(Integer, primary_key=True, index=True)
-    nom = Column(String, nullable=False)
-    prenom = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
+    first_name = Column(String, nullable=False)
     age = Column(Integer, nullable=False)
-    numero_ramq = Column(String, unique=True, nullable=False, index=True)
+    health_card_number = Column(String, unique=True, nullable=False, index=True)
 
-    rendezvous = relationship(
-        "RendezVous",
+    appointments = relationship(
+        "Appointment",
         back_populates="patient",
         cascade="all, delete-orphan",
     )
 
 
-class Medecin(Base):
-    __tablename__ = "medecins"
+class Doctor(Base):
+    __tablename__ = "doctors"
 
     id = Column(Integer, primary_key=True, index=True)
-    nom = Column(String, nullable=False)
-    prenom = Column(String, nullable=False)
-    specialite = Column(String, nullable=False)
-    numero_permis = Column(String, unique=True, nullable=False, index=True)
+    last_name = Column(String, nullable=False)
+    first_name = Column(String, nullable=False)
+    specialty = Column(String, nullable=False)
+    license_number = Column(String, unique=True, nullable=False, index=True)
 
-    rendezvous = relationship(
-        "RendezVous",
-        back_populates="medecin",
+    appointments = relationship(
+        "Appointment",
+        back_populates="doctor",
         cascade="all, delete-orphan",
     )
 
 
-class RendezVous(Base):
-    __tablename__ = "rendezvous"
+class Appointment(Base):
+    __tablename__ = "appointments"
 
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
-    medecin_id = Column(Integer, ForeignKey("medecins.id"), nullable=False, index=True)
-    date_heure = Column(DateTime, nullable=False)
-    duree_minutes = Column(Integer, nullable=False, default=30)
-    motif = Column(String, nullable=True)
-    statut = Column(
-        Enum(StatutRendezVous),
+    doctor_id = Column(Integer, ForeignKey("doctors.id"), nullable=False, index=True)
+    scheduled_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer, nullable=False, default=30)
+    reason = Column(String, nullable=True)
+    status = Column(
+        Enum(AppointmentStatus),
         nullable=False,
-        default=StatutRendezVous.prevu,
+        default=AppointmentStatus.scheduled,
     )
-    mode = Column(Enum(ModeConsultation), nullable=False)
+    mode = Column(Enum(ConsultationMode), nullable=False)
 
-    patient = relationship("Patient", back_populates="rendezvous")
-    medecin = relationship("Medecin", back_populates="rendezvous")
+    patient = relationship("Patient", back_populates="appointments")
+    doctor = relationship("Doctor", back_populates="appointments")

@@ -1,230 +1,230 @@
 # Medical Appointments API
 
-API REST de gestion de rendez-vous médicaux développée en Python avec FastAPI.
+A REST API for managing medical appointments, built in Python with FastAPI.
 
-Projet personnel d'apprentissage du développement backend, inspiré de mon expérience administrative en milieu médical (clinique, hôpital).
+A personal backend-development project, inspired by my administrative experience in medical settings (clinics, hospitals).
 
-## Pourquoi ce projet
+## Why this project
 
-J'ai travaillé plusieurs années comme adjointe administrative dans des cliniques et hôpitaux, où j'ai utilisé quotidiennement des logiciels de gestion de rendez-vous, de dossiers patients et de prescriptions. Je connais les vrais problèmes du domaine : double-booking, gestion des disponibilités, confidentialité des données. Ce projet me permet de les attaquer du côté développeur cette fois.
+I worked for several years as an administrative assistant in clinics and hospitals, where I used appointment-scheduling, patient-record and prescription software every day. I know the real problems of the domain: double-booking, availability management, data confidentiality. This project lets me tackle them from the developer's side this time.
 
-## Stack technique
+## Tech stack
 
 - **Python 3.13**
-- **FastAPI** — framework web pour l'API REST
-- **Uvicorn** — serveur ASGI
+- **FastAPI** — web framework for the REST API
+- **Uvicorn** — ASGI server
 - **SQLAlchemy** — ORM
-- **SQLite** (puis **PostgreSQL** plus tard) — base de données
-- **Pytest** — tests automatisés
-- **python-jose** + **passlib/bcrypt** — authentification JWT et hash des mots de passe
+- **SQLite** (then **PostgreSQL** later) — database
+- **Pytest** — automated tests
+- **python-jose** + **passlib/bcrypt** — JWT authentication and password hashing
 
 ## Installation
 
-### Prérequis
+### Prerequisites
 
-- Python 3.11 ou plus récent
+- Python 3.11 or newer
 - Git
 
-### Étapes
+### Steps
 
 ```bash
-# Cloner le repo
+# Clone the repo
 git clone https://github.com/soundousboutarfaya/medical-appointments-api.git
 cd medical-appointments-api
 
-# Créer et activer l'environnement virtuel
+# Create and activate the virtual environment
 python3 -m venv venv
-source venv/bin/activate  # sur Mac/Linux
-# .\venv\Scripts\activate   # sur Windows
+source venv/bin/activate  # on Mac/Linux
+# .\venv\Scripts\activate   # on Windows
 
-# Installer les dépendances
+# Install dependencies
 pip install -r requirements.txt
 
-# Configurer les variables d'environnement
+# Configure environment variables
 cp .env.example .env
-# Puis ouvrir .env et remplacer SECRET_KEY par une vraie clé aléatoire
+# Then open .env and replace SECRET_KEY with a real random key
 
-# Lancer le serveur
+# Start the server
 uvicorn main:app --reload
 ```
 
-L'API est ensuite disponible sur `http://127.0.0.1:8000`.
-La documentation interactive Swagger UI est sur `http://127.0.0.1:8000/docs`.
+The API is then available at `http://127.0.0.1:8000`.
+The interactive Swagger UI documentation is at `http://127.0.0.1:8000/docs`.
 
-## Variables d'environnement
+## Environment variables
 
-| Variable | Description | Obligatoire en prod |
-|----------|-------------|---------------------|
-| `SECRET_KEY` | Clé utilisée pour signer les JWT. Générer avec `python -c "import secrets; print(secrets.token_urlsafe(64))"` | Oui |
+| Variable | Description | Required in prod |
+|----------|-------------|------------------|
+| `SECRET_KEY` | Key used to sign JWTs. Generate with `python -c "import secrets; print(secrets.token_urlsafe(64))"` | Yes |
 
-En développement, une clé par défaut est utilisée mais elle est volontairement marquée comme non sécurisée — toujours la remplacer en production.
+In development a default key is used, but it is intentionally marked as insecure — always replace it in production.
 
-## Endpoints disponibles
+## Available endpoints
 
+### Authentication
 
-### Authentification
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| POST | `/auth/register` | Public | Creates a new account (role `admin` or `doctor`) |
+| POST | `/auth/login` | Public | Exchanges email + password for a JWT |
+| GET | `/auth/me` | Authenticated | Returns the current user's profile |
 
-| Méthode | Endpoint | Accès | Description |
-|---------|----------|-------|-------------|
-| POST | `/auth/register` | Public | Crée un nouveau compte (rôle `admin` ou `medecin`) |
-| POST | `/auth/login` | Public | Échange email + mot de passe contre un JWT |
-| GET | `/auth/me` | Authentifié | Retourne le profil de l'utilisateur courant |
+All endpoints below (except `/`) require an `Authorization: Bearer <token>` header.
 
-Tous les endpoints ci-dessous (sauf `/`) requièrent un header `Authorization: Bearer <token>`.
+### Resources
 
-### Ressources
-
-| Méthode | Endpoint | Accès | Description |
-|---------|----------|-------|-------------|
-| GET | `/` | Public | Page d'accueil de l'API |
-| GET | `/patients` | Authentifié | Liste tous les patients |
-| GET | `/patients/{id}` | Authentifié | Récupère un patient par son ID |
-| POST | `/patients` | Admin | Crée un nouveau patient (avec validation RAMQ) |
-| PUT | `/patients/{id}` | Admin | Modifie un patient existant |
-| DELETE | `/patients/{id}` | Admin | Supprime un patient |
-| GET | `/medecins` | Authentifié | Liste tous les médecins |
-| GET | `/medecins/{id}` | Authentifié | Récupère un médecin par son ID |
-| POST | `/medecins` | Admin | Crée un nouveau médecin (validation du numéro de permis) |
-| PUT | `/medecins/{id}` | Admin | Modifie un médecin existant |
-| DELETE | `/medecins/{id}` | Admin | Supprime un médecin |
-| GET | `/rendezvous` | Authentifié | Liste tous les rendez-vous |
-| GET | `/rendezvous/{id}` | Authentifié | Récupère un rendez-vous par son ID |
-| POST | `/rendezvous` | Admin / médecin | Crée un rendez-vous (en personne ou virtuel) |
-| PUT | `/rendezvous/{id}` | Admin / médecin | Modifie un rendez-vous existant |
-| DELETE | `/rendezvous/{id}` | Admin / médecin | Supprime un rendez-vous |
-| GET | `/medecins/{id}/creneaux?jour=YYYY-MM-DD` | Authentifié | Liste les créneaux libres d'un médecin pour une journée |
+| Method | Endpoint | Access | Description |
+|--------|----------|--------|-------------|
+| GET | `/` | Public | API home page |
+| GET | `/patients` | Authenticated | List all patients |
+| GET | `/patients/{id}` | Authenticated | Get a patient by ID |
+| POST | `/patients` | Admin | Create a new patient (with health card validation) |
+| PUT | `/patients/{id}` | Admin | Update an existing patient |
+| DELETE | `/patients/{id}` | Admin | Delete a patient |
+| GET | `/doctors` | Authenticated | List all doctors |
+| GET | `/doctors/{id}` | Authenticated | Get a doctor by ID |
+| POST | `/doctors` | Admin | Create a new doctor (license number validation) |
+| PUT | `/doctors/{id}` | Admin | Update an existing doctor |
+| DELETE | `/doctors/{id}` | Admin | Delete a doctor |
+| GET | `/appointments` | Authenticated | List all appointments |
+| GET | `/appointments/{id}` | Authenticated | Get an appointment by ID |
+| POST | `/appointments` | Admin / doctor | Create an appointment (in person or virtual) |
+| PUT | `/appointments/{id}` | Admin / doctor | Update an existing appointment |
+| DELETE | `/appointments/{id}` | Admin / doctor | Delete an appointment |
+| GET | `/doctors/{id}/slots?day=YYYY-MM-DD` | Authenticated | List a doctor's free slots for a day |
 
 ## Roadmap
-### Étape 1 — Setup et premiers endpoints
-- [x] Initialiser le projet et le repo GitHub
-- [x] Configurer l'environnement virtuel Python
-- [x] Installer FastAPI et Uvicorn
-- [x] Créer un endpoint racine `GET /`
-- [x] Créer un endpoint `GET /patients` (liste en mémoire)
-- [x] Créer un endpoint `GET /patients/{id}` avec validation automatique
-- [x] Ajouter `POST /patients` pour créer un patient
-- [x] Ajouter validation du format RAMQ (regex Pydantic)
-- [x] Vérifier l'unicité du numéro RAMQ
-- [x] Écrire les premiers tests unitaires avec Pytest (8 tests)
-- [x] Ajouter `PUT /patients/{id}` pour modifier
-- [x] Ajouter `DELETE /patients/{id}` pour supprimer
 
-### Étape 2 — Base de données
-- [x] Intégrer SQLAlchemy avec SQLite
-- [x] Migrer du stockage en mémoire vers la base de données
-- [x] Modéliser le schéma complet (médecins, rendez-vous)
-- [x] CRUD complet pour médecins et rendez-vous
-- [x] Mode de consultation (en personne / virtuel) sur les rendez-vous
+### Step 1 — Setup and first endpoints
+- [x] Initialize the project and the GitHub repo
+- [x] Set up the Python virtual environment
+- [x] Install FastAPI and Uvicorn
+- [x] Create a root endpoint `GET /`
+- [x] Create a `GET /patients` endpoint (in-memory list)
+- [x] Create a `GET /patients/{id}` endpoint with automatic validation
+- [x] Add `POST /patients` to create a patient
+- [x] Add health card format validation (Pydantic regex)
+- [x] Enforce health card number uniqueness
+- [x] Write the first unit tests with Pytest
+- [x] Add `PUT /patients/{id}` to update
+- [x] Add `DELETE /patients/{id}` to delete
 
-### Étape 3 — Logique métier
-- [x] Empêcher le double-booking d'un médecin (détection de chevauchement avec durée variable)
-- [x] Valider les horaires d'ouverture (8h–18h, lundi au vendredi)
-- [x] Endpoint de recherche de créneaux disponibles (granularité 30 min)
-- [x] Règle d'annulation (24h à l'avance minimum)
+### Step 2 — Database
+- [x] Integrate SQLAlchemy with SQLite
+- [x] Migrate from in-memory storage to the database
+- [x] Model the full schema (doctors, appointments)
+- [x] Full CRUD for doctors and appointments
+- [x] Consultation mode (in person / virtual) on appointments
 
-### Étape 4 — Sécurité et tests
-- [x] Authentification JWT (login, /me, hash bcrypt)
-- [x] Système de rôles (admin, médecin) avec dépendances FastAPI
-- [x] Tests unitaires avec Pytest
-- [x] Tests d'intégration (scénario end-to-end inscription → connexion → création RDV)
+### Step 3 — Business logic
+- [x] Prevent double-booking a doctor (overlap detection with variable duration)
+- [x] Validate opening hours (8:00–18:00, Monday to Friday)
+- [x] Available-slots lookup endpoint (30-min granularity)
+- [x] Cancellation rule (at least 24h in advance)
 
-### Étape 5 — Déploiement
-- [x] Préparation pour Render (`render.yaml`, `Procfile`, `requirements.txt`)
-- [x] Documentation des variables d'environnement
-- [x] Documentation finale
-- [ ] Déploiement effectif sur Render (à faire depuis le dashboard Render)
-- [ ] Captures d'écran de Swagger UI
+### Step 4 — Security and tests
+- [x] JWT authentication (login, /me, bcrypt hashing)
+- [x] Role system (admin, doctor) with FastAPI dependencies
+- [x] Unit tests with Pytest
+- [x] Integration tests (end-to-end scenario register → login → create appointment)
 
-### Déploiement sur Render
+### Step 5 — Deployment
+- [x] Render preparation (`render.yaml`, `Procfile`, `requirements.txt`)
+- [x] Environment variables documentation
+- [x] Final documentation
+- [ ] Actual deployment on Render (to be done from the Render dashboard)
+- [ ] Swagger UI screenshots
 
-Le projet est prêt à être déployé sur [Render](https://render.com) :
+### Deploying on Render
 
-1. Pousser le code sur GitHub
-2. Sur Render : New → Blueprint → connecter le repo
-3. Render détecte automatiquement `render.yaml` et provisionne le service
-4. La variable `SECRET_KEY` est générée automatiquement par Render
+The project is ready to be deployed on [Render](https://render.com):
 
-**Limitation à connaître :** SQLite sur le plan gratuit de Render n'est pas persistant (le disque est éphémère). Pour de la vraie production, migrer vers PostgreSQL en modifiant `database.py` et en ajoutant `psycopg2-binary` à `requirements.txt`.
+1. Push the code to GitHub
+2. On Render: New → Blueprint → connect the repo
+3. Render automatically detects `render.yaml` and provisions the service
+4. The `SECRET_KEY` variable is generated automatically by Render
 
-## Ce que j'apprends en construisant ce projet
+**Known limitation:** SQLite on Render's free plan is not persistent (the disk is ephemeral). For real production, migrate to PostgreSQL by editing `database.py` and adding `psycopg2-binary` to `requirements.txt`.
 
-- Architecture d'une API REST
-- Conception de schémas de bases de données relationnelles
-- Validation de données avec Pydantic
-- Authentification et sécurité d'API
-- Tests automatisés
-- Déploiement d'applications Python
+## What I'm learning by building this project
 
-## Auteure
+- REST API architecture
+- Relational database schema design
+- Data validation with Pydantic
+- API authentication and security
+- Automated testing
+- Deploying Python applications
+
+## Author
 
 **Soundous Boutarfaya**
-Bachelière en informatique, Université de Montréal
+Bachelor's in Computer Science, Université de Montréal
 soundousboutarfaya@yahoo.fr
 
-## Licence
+## License
 
 MIT
 
 ## Tests
 
-Le projet inclut une suite de **68 tests** avec Pytest, exécutés sur une base SQLite **en mémoire** (isolée de `app.db`).
+The project includes a suite of **69 tests** with Pytest, run on an **in-memory** SQLite database (isolated from `app.db`).
 
 ```bash
 pytest -v
 ```
 
-Tests actuellement couverts :
+Currently covered tests:
 
-**Lecture (GET)**
-- Endpoint racine
-- Liste de tous les patients
-- Récupération d'un patient par ID
-- Gestion d'un ID inexistant
+**Reads (GET)**
+- Root endpoint
+- List all patients
+- Get a patient by ID
+- Handling a non-existent ID
 
-**Création (POST)**
-- Création avec données valides
-- Rejet des RAMQ au format invalide
-- Rejet des patients sans RAMQ
-- Détection des doublons de RAMQ
+**Creation (POST)**
+- Creation with valid data
+- Rejection of invalid health card formats
+- Rejection of patients without a health card number
+- Health card duplicate detection
 
-**Modification (PUT)**
-- Modification d'un patient existant
-- Gestion d'un patient inexistant
+**Update (PUT)**
+- Update an existing patient
+- Handling a non-existent patient
 
-**Suppression (DELETE)**
-- Suppression d'un patient existant
-- Gestion d'un patient inexistant
-- Cascade : la suppression d'un patient supprime ses rendez-vous
+**Deletion (DELETE)**
+- Delete an existing patient
+- Handling a non-existent patient
+- Cascade: deleting a patient deletes their appointments
 
-**Médecins**
-- CRUD complet
-- Validation du format du numéro de permis (5 chiffres)
-- Détection des doublons de permis
+**Doctors**
+- Full CRUD
+- License number format validation (5 digits)
+- License duplicate detection
 
-**Rendez-vous**
-- Création en personne et virtuel
-- Rejet des modes invalides
-- Vérification de l'existence du patient et du médecin référencés
-- Modification du statut (prévu / confirmé / annulé / complété)
+**Appointments**
+- In-person and virtual creation
+- Rejection of invalid modes
+- Verifying that the referenced patient and doctor exist
+- Status update (scheduled / confirmed / cancelled / completed)
 
-**Logique métier**
-- Refus des RDV hors plage 8h–18h ou en débordement
-- Refus des RDV le week-end
-- Détection de chevauchement (double-booking) avec durée variable
-- Acceptation des RDV consécutifs et des médecins différents au même horaire
-- Libération du créneau quand un RDV est annulé
-- Calcul des créneaux disponibles pour un médecin sur une journée
-- Règle d'annulation 24h (testée avec mock du temps)
+**Business logic**
+- Rejection of appointments outside the 8:00–18:00 range or overflowing
+- Rejection of weekend appointments
+- Overlap detection (double-booking) with variable duration
+- Acceptance of consecutive appointments and of different doctors at the same time
+- Freeing the slot when an appointment is cancelled
+- Computing a doctor's available slots for a day
+- 24h cancellation rule (tested with time mocking)
 
-**Authentification et rôles**
-- Inscription avec validation d'email et de longueur de mot de passe
-- Rejet des emails déjà utilisés
-- Connexion par email + mot de passe, retour d'un JWT
-- Refus avec mauvais mot de passe ou email inconnu
-- Endpoint `/auth/me` qui renvoie le profil
-- Endpoints protégés (401 sans token, 401 avec token invalide)
-- Endpoints admin-only refusés à un médecin (403)
-- Endpoints réservés au personnel médical accessibles aux médecins
+**Authentication and roles**
+- Registration with email and password-length validation
+- Rejection of already-used emails
+- Login by email + password, returning a JWT
+- Rejection with a wrong password or unknown email
+- `/auth/me` endpoint returning the profile
+- Protected endpoints (401 without token, 401 with invalid token)
+- Admin-only endpoints denied to a doctor (403)
+- Medical-staff endpoints accessible to doctors
 
-**Intégration**
-- Scénario end-to-end : inscription → connexion → création de RDV → lecture du profil
+**Integration**
+- End-to-end scenario: register → login → create appointment → read profile

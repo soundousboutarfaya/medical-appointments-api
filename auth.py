@@ -8,9 +8,9 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models import RoleUtilisateur, User
+from models import UserRole, User
 
-# Configuration — en production, SECRET_KEY doit être fourni par variable d'env
+# Configuration — in production, SECRET_KEY must come from an env variable
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-insecure-change-me-in-prod")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
@@ -37,39 +37,39 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
-    exception_auth = HTTPException(
+    auth_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Authentification invalide",
+        detail="Invalid authentication credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str | None = payload.get("sub")
         if email is None:
-            raise exception_auth
+            raise auth_exception
     except JWTError:
-        raise exception_auth
+        raise auth_exception
 
     user = db.query(User).filter(User.email == email).first()
     if user is None:
-        raise exception_auth
+        raise auth_exception
     return user
 
 
 def require_admin(current: User = Depends(get_current_user)) -> User:
-    if current.role != RoleUtilisateur.admin:
+    if current.role != UserRole.admin:
         raise HTTPException(
             status_code=403,
-            detail="Action réservée aux administrateurs"
+            detail="Action restricted to administrators",
         )
     return current
 
 
-def require_personnel(current: User = Depends(get_current_user)) -> User:
-    """Admin ou médecin — utilisé pour les opérations cliniques (RDV)."""
-    if current.role not in (RoleUtilisateur.admin, RoleUtilisateur.medecin):
+def require_staff(current: User = Depends(get_current_user)) -> User:
+    """Admin or doctor — used for clinical operations (appointments)."""
+    if current.role not in (UserRole.admin, UserRole.doctor):
         raise HTTPException(
             status_code=403,
-            detail="Action réservée au personnel médical"
+            detail="Action restricted to medical staff",
         )
     return current

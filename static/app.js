@@ -1,13 +1,13 @@
-// État global
+// Global state
 const state = {
   token: localStorage.getItem('token') || null,
   user: null,
   patients: [],
-  medecins: [],
-  rendezvous: [],
+  doctors: [],
+  appointments: [],
 };
 
-// ===== UTILITAIRES =====
+// ===== UTILITIES =====
 
 function $(selector) { return document.querySelector(selector); }
 function $$(selector) { return document.querySelectorAll(selector); }
@@ -28,7 +28,7 @@ async function api(method, path, body = null, isForm = false) {
   const res = await fetch(path, { method, headers, body: bodyData });
   const data = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
-    const detail = data?.detail || `Erreur ${res.status}`;
+    const detail = data?.detail || `Error ${res.status}`;
     throw new Error(typeof detail === 'string' ? detail : JSON.stringify(detail));
   }
   return data;
@@ -58,20 +58,20 @@ function toast(message, type = 'success') {
 
 function formatDateTime(iso) {
   const d = new Date(iso);
-  return d.toLocaleString('fr-CA', {
+  return d.toLocaleString('en-CA', {
     weekday: 'short', day: '2-digit', month: 'short',
     hour: '2-digit', minute: '2-digit',
   });
 }
 
-const STATUT_STYLE = {
-  prevu:    { label: 'Prévu',     classes: 'bg-blue-100 text-blue-700' },
-  confirme: { label: 'Confirmé',  classes: 'bg-emerald-100 text-emerald-700' },
-  annule:   { label: 'Annulé',    classes: 'bg-red-100 text-red-700' },
-  complete: { label: 'Complété',  classes: 'bg-slate-200 text-slate-700' },
+const STATUS_STYLE = {
+  scheduled: { label: 'Scheduled', classes: 'bg-blue-100 text-blue-700' },
+  confirmed: { label: 'Confirmed', classes: 'bg-emerald-100 text-emerald-700' },
+  cancelled: { label: 'Cancelled', classes: 'bg-red-100 text-red-700' },
+  completed: { label: 'Completed', classes: 'bg-slate-200 text-slate-700' },
 };
 
-// ===== AUTHENTIFICATION =====
+// ===== AUTHENTICATION =====
 
 async function login(email, password) {
   const data = await api('POST', '/auth/login', { username: email, password }, true);
@@ -84,7 +84,7 @@ async function login(email, password) {
 
 async function register(email, password, role) {
   await api('POST', '/auth/register', { email, password, role });
-  toast('Compte créé, connectez-vous', 'success');
+  toast('Account created, please sign in', 'success');
   $('#tab-login').click();
 }
 
@@ -92,7 +92,7 @@ async function loadUser() {
   try {
     state.user = await api('GET', '/auth/me');
     $('#user-email').textContent = state.user.email;
-    $('#user-role').textContent = state.user.role === 'admin' ? 'Administrateur' : 'Médecin';
+    $('#user-role').textContent = state.user.role === 'admin' ? 'Administrator' : 'Doctor';
     $('#user-avatar').textContent = state.user.email[0].toUpperCase();
   } catch (e) {
     logout();
@@ -122,55 +122,55 @@ function navigate(page) {
 
   if (page === 'dashboard') loadDashboard();
   if (page === 'patients') loadPatients();
-  if (page === 'medecins') loadMedecins();
-  if (page === 'rendezvous') loadRendezVous();
-  if (page === 'creneaux') loadCreneauxPage();
+  if (page === 'doctors') loadDoctors();
+  if (page === 'appointments') loadAppointments();
+  if (page === 'slots') loadSlotsPage();
 }
 
-// ===== TABLEAU DE BORD =====
+// ===== DASHBOARD =====
 
 async function loadDashboard() {
   try {
-    const [patients, medecins, rdv] = await Promise.all([
+    const [patients, doctors, appointments] = await Promise.all([
       api('GET', '/patients'),
-      api('GET', '/medecins'),
-      api('GET', '/rendezvous'),
+      api('GET', '/doctors'),
+      api('GET', '/appointments'),
     ]);
     state.patients = patients;
-    state.medecins = medecins;
-    state.rendezvous = rdv;
+    state.doctors = doctors;
+    state.appointments = appointments;
 
     $('#stat-patients').textContent = patients.length;
-    $('#stat-medecins').textContent = medecins.length;
-    $('#stat-rdv').textContent = rdv.length;
+    $('#stat-doctors').textContent = doctors.length;
+    $('#stat-appointments').textContent = appointments.length;
 
-    const upcoming = rdv
-      .filter(r => r.statut !== 'annule' && new Date(r.date_heure) >= new Date())
-      .sort((a, b) => new Date(a.date_heure) - new Date(b.date_heure))
+    const upcoming = appointments
+      .filter(a => a.status !== 'cancelled' && new Date(a.scheduled_at) >= new Date())
+      .sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at))
       .slice(0, 5);
 
     const container = $('#dashboard-upcoming');
     if (upcoming.length === 0) {
-      container.innerHTML = '<p class="text-sm text-slate-400 italic">Aucun rendez-vous à venir</p>';
+      container.innerHTML = '<p class="text-sm text-slate-400 italic">No upcoming appointments</p>';
     } else {
-      container.innerHTML = upcoming.map(r => {
-        const p = patients.find(x => x.id === r.patient_id);
-        const m = medecins.find(x => x.id === r.medecin_id);
-        const statut = STATUT_STYLE[r.statut];
+      container.innerHTML = upcoming.map(a => {
+        const p = patients.find(x => x.id === a.patient_id);
+        const d = doctors.find(x => x.id === a.doctor_id);
+        const status = STATUS_STYLE[a.status];
         return `
           <div class="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-primary-100 to-primary-500 flex items-center justify-center text-white font-semibold text-sm">
-                ${p ? (p.prenom[0] + p.nom[0]) : '?'}
+                ${p ? (p.first_name[0] + p.last_name[0]) : '?'}
               </div>
               <div>
-                <p class="text-sm font-semibold text-slate-900">${p ? p.prenom + ' ' + p.nom : 'Patient inconnu'}</p>
-                <p class="text-xs text-slate-500">Avec Dr ${m ? m.nom : '?'} — ${m?.specialite || ''}</p>
+                <p class="text-sm font-semibold text-slate-900">${p ? p.first_name + ' ' + p.last_name : 'Unknown patient'}</p>
+                <p class="text-xs text-slate-500">With Dr ${d ? d.last_name : '?'} — ${d?.specialty || ''}</p>
               </div>
             </div>
             <div class="text-right">
-              <p class="text-sm font-medium text-slate-700">${formatDateTime(r.date_heure)}</p>
-              <span class="inline-block text-xs px-2 py-0.5 rounded-full ${statut.classes} mt-0.5">${statut.label}</span>
+              <p class="text-sm font-medium text-slate-700">${formatDateTime(a.scheduled_at)}</p>
+              <span class="inline-block text-xs px-2 py-0.5 rounded-full ${status.classes} mt-0.5">${status.label}</span>
             </div>
           </div>`;
       }).join('');
@@ -185,7 +185,7 @@ async function loadPatients() {
     state.patients = await api('GET', '/patients');
     const list = $('#patients-list');
     if (state.patients.length === 0) {
-      list.innerHTML = emptyState('Aucun patient', 'Commencez par en créer un');
+      list.innerHTML = emptyState('No patients', 'Start by creating one');
       return;
     }
     list.innerHTML = `
@@ -193,8 +193,8 @@ async function loadPatients() {
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
             <th class="text-left px-6 py-3 font-semibold text-slate-700">Patient</th>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">Âge</th>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">RAMQ</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">Age</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">Health card</th>
             <th class="px-6 py-3"></th>
           </tr>
         </thead>
@@ -203,16 +203,16 @@ async function loadPatients() {
             <tr class="hover:bg-slate-50 transition">
               <td class="px-6 py-3">
                 <div class="flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-blue-500 flex items-center justify-center text-white font-semibold text-xs">${p.prenom[0]}${p.nom[0]}</div>
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-blue-500 flex items-center justify-center text-white font-semibold text-xs">${p.first_name[0]}${p.last_name[0]}</div>
                   <div>
-                    <p class="font-semibold text-slate-900">${p.prenom} ${p.nom}</p>
+                    <p class="font-semibold text-slate-900">${p.first_name} ${p.last_name}</p>
                   </div>
                 </div>
               </td>
-              <td class="px-6 py-3 text-slate-600">${p.age} ans</td>
-              <td class="px-6 py-3"><code class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">${p.numero_ramq}</code></td>
+              <td class="px-6 py-3 text-slate-600">${p.age} yrs</td>
+              <td class="px-6 py-3"><code class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">${p.health_card_number}</code></td>
               <td class="px-6 py-3 text-right">
-                <button onclick="deletePatient(${p.id})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Supprimer">
+                <button onclick="deletePatient(${p.id})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Delete">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
                 </button>
               </td>
@@ -224,47 +224,47 @@ async function loadPatients() {
 }
 
 async function deletePatient(id) {
-  if (!confirm('Supprimer ce patient ? Tous ses rendez-vous seront aussi supprimés.')) return;
+  if (!confirm('Delete this patient? All their appointments will be deleted too.')) return;
   try {
     await api('DELETE', `/patients/${id}`);
-    toast('Patient supprimé', 'success');
+    toast('Patient deleted', 'success');
     loadPatients();
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ===== MÉDECINS =====
+// ===== DOCTORS =====
 
-async function loadMedecins() {
+async function loadDoctors() {
   try {
-    state.medecins = await api('GET', '/medecins');
-    const list = $('#medecins-list');
-    if (state.medecins.length === 0) {
-      list.innerHTML = emptyState('Aucun médecin', 'Commencez par en créer un');
+    state.doctors = await api('GET', '/doctors');
+    const list = $('#doctors-list');
+    if (state.doctors.length === 0) {
+      list.innerHTML = emptyState('No doctors', 'Start by creating one');
       return;
     }
     list.innerHTML = `
       <table class="w-full text-sm">
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">Médecin</th>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">Spécialité</th>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">Permis</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">Doctor</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">Specialty</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">License</th>
             <th class="px-6 py-3"></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          ${state.medecins.map(m => `
+          ${state.doctors.map(d => `
             <tr class="hover:bg-slate-50 transition">
               <td class="px-6 py-3">
                 <div class="flex items-center gap-3">
-                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-500 flex items-center justify-center text-white font-semibold text-xs">${m.prenom[0]}${m.nom[0]}</div>
-                  <p class="font-semibold text-slate-900">Dr ${m.prenom} ${m.nom}</p>
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-500 flex items-center justify-center text-white font-semibold text-xs">${d.first_name[0]}${d.last_name[0]}</div>
+                  <p class="font-semibold text-slate-900">Dr ${d.first_name} ${d.last_name}</p>
                 </div>
               </td>
-              <td class="px-6 py-3"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">${m.specialite}</span></td>
-              <td class="px-6 py-3"><code class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">${m.numero_permis}</code></td>
+              <td class="px-6 py-3"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium">${d.specialty}</span></td>
+              <td class="px-6 py-3"><code class="text-xs font-mono bg-slate-100 px-2 py-0.5 rounded">${d.license_number}</code></td>
               <td class="px-6 py-3 text-right">
-                <button onclick="deleteMedecin(${m.id})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition">
+                <button onclick="deleteDoctor(${d.id})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
                 </button>
               </td>
@@ -275,72 +275,72 @@ async function loadMedecins() {
   } catch (e) { toast(e.message, 'error'); }
 }
 
-async function deleteMedecin(id) {
-  if (!confirm('Supprimer ce médecin ? Tous ses rendez-vous seront aussi supprimés.')) return;
+async function deleteDoctor(id) {
+  if (!confirm('Delete this doctor? All their appointments will be deleted too.')) return;
   try {
-    await api('DELETE', `/medecins/${id}`);
-    toast('Médecin supprimé', 'success');
-    loadMedecins();
+    await api('DELETE', `/doctors/${id}`);
+    toast('Doctor deleted', 'success');
+    loadDoctors();
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ===== RENDEZ-VOUS =====
+// ===== APPOINTMENTS =====
 
-async function loadRendezVous() {
+async function loadAppointments() {
   try {
-    const [rdv, patients, medecins] = await Promise.all([
-      api('GET', '/rendezvous'),
+    const [appointments, patients, doctors] = await Promise.all([
+      api('GET', '/appointments'),
       api('GET', '/patients'),
-      api('GET', '/medecins'),
+      api('GET', '/doctors'),
     ]);
-    state.rendezvous = rdv;
+    state.appointments = appointments;
     state.patients = patients;
-    state.medecins = medecins;
-    const list = $('#rdv-list');
-    if (rdv.length === 0) {
-      list.innerHTML = emptyState('Aucun rendez-vous', 'Créez votre premier rendez-vous');
+    state.doctors = doctors;
+    const list = $('#appointments-list');
+    if (appointments.length === 0) {
+      list.innerHTML = emptyState('No appointments', 'Create your first appointment');
       return;
     }
     list.innerHTML = `
       <table class="w-full text-sm">
         <thead class="bg-slate-50 border-b border-slate-200">
           <tr>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">Date et heure</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">Date and time</th>
             <th class="text-left px-6 py-3 font-semibold text-slate-700">Patient</th>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">Médecin</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">Doctor</th>
             <th class="text-left px-6 py-3 font-semibold text-slate-700">Mode</th>
-            <th class="text-left px-6 py-3 font-semibold text-slate-700">Statut</th>
+            <th class="text-left px-6 py-3 font-semibold text-slate-700">Status</th>
             <th class="px-6 py-3"></th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          ${rdv.map(r => {
-            const p = patients.find(x => x.id === r.patient_id);
-            const m = medecins.find(x => x.id === r.medecin_id);
-            const statut = STATUT_STYLE[r.statut];
-            const modeIcon = r.mode === 'virtuel'
+          ${appointments.map(a => {
+            const p = patients.find(x => x.id === a.patient_id);
+            const d = doctors.find(x => x.id === a.doctor_id);
+            const status = STATUS_STYLE[a.status];
+            const modeIcon = a.mode === 'virtual'
               ? '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>'
               : '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>';
             return `
               <tr class="hover:bg-slate-50 transition">
                 <td class="px-6 py-3">
-                  <p class="font-semibold text-slate-900">${formatDateTime(r.date_heure)}</p>
-                  <p class="text-xs text-slate-500">${r.duree_minutes} min</p>
+                  <p class="font-semibold text-slate-900">${formatDateTime(a.scheduled_at)}</p>
+                  <p class="text-xs text-slate-500">${a.duration_minutes} min</p>
                 </td>
-                <td class="px-6 py-3 text-slate-700">${p ? p.prenom + ' ' + p.nom : '—'}</td>
-                <td class="px-6 py-3 text-slate-700">Dr ${m ? m.nom : '—'}</td>
+                <td class="px-6 py-3 text-slate-700">${p ? p.first_name + ' ' + p.last_name : '—'}</td>
+                <td class="px-6 py-3 text-slate-700">Dr ${d ? d.last_name : '—'}</td>
                 <td class="px-6 py-3">
                   <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs font-medium">
                     ${modeIcon}
-                    ${r.mode === 'virtuel' ? 'Virtuel' : 'En personne'}
+                    ${a.mode === 'virtual' ? 'Virtual' : 'In person'}
                   </span>
                 </td>
-                <td class="px-6 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${statut.classes}">${statut.label}</span></td>
+                <td class="px-6 py-3"><span class="px-2 py-0.5 rounded-full text-xs font-medium ${status.classes}">${status.label}</span></td>
                 <td class="px-6 py-3 text-right">
-                  ${r.statut !== 'annule' && r.statut !== 'complete' ? `
-                    <button onclick="annulerRdv(${r.id})" class="text-xs text-slate-500 hover:text-red-600 mr-2">Annuler</button>
+                  ${a.status !== 'cancelled' && a.status !== 'completed' ? `
+                    <button onclick="cancelAppointment(${a.id})" class="text-xs text-slate-500 hover:text-red-600 mr-2">Cancel</button>
                   ` : ''}
-                  <button onclick="deleteRdv(${r.id})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Supprimer">
+                  <button onclick="deleteAppointment(${a.id})" class="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition" title="Delete">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"/></svg>
                   </button>
                 </td>
@@ -351,65 +351,65 @@ async function loadRendezVous() {
   } catch (e) { toast(e.message, 'error'); }
 }
 
-async function annulerRdv(id) {
-  const rdv = state.rendezvous.find(r => r.id === id);
-  if (!rdv) return;
-  if (!confirm('Annuler ce rendez-vous ?')) return;
+async function cancelAppointment(id) {
+  const appt = state.appointments.find(a => a.id === id);
+  if (!appt) return;
+  if (!confirm('Cancel this appointment?')) return;
   try {
-    await api('PUT', `/rendezvous/${id}`, { ...rdv, statut: 'annule' });
-    toast('Rendez-vous annulé', 'success');
-    loadRendezVous();
+    await api('PUT', `/appointments/${id}`, { ...appt, status: 'cancelled' });
+    toast('Appointment cancelled', 'success');
+    loadAppointments();
   } catch (e) { toast(e.message, 'error'); }
 }
 
-async function deleteRdv(id) {
-  if (!confirm('Supprimer définitivement ce rendez-vous ?')) return;
+async function deleteAppointment(id) {
+  if (!confirm('Permanently delete this appointment?')) return;
   try {
-    await api('DELETE', `/rendezvous/${id}`);
-    toast('Rendez-vous supprimé', 'success');
-    loadRendezVous();
+    await api('DELETE', `/appointments/${id}`);
+    toast('Appointment deleted', 'success');
+    loadAppointments();
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ===== CRÉNEAUX =====
+// ===== AVAILABLE SLOTS =====
 
-async function loadCreneauxPage() {
+async function loadSlotsPage() {
   try {
-    state.medecins = await api('GET', '/medecins');
-    const select = $('#creneaux-medecin');
-    select.innerHTML = '<option value="">Choisir un médecin...</option>' +
-      state.medecins.map(m => `<option value="${m.id}">Dr ${m.prenom} ${m.nom} — ${m.specialite}</option>`).join('');
-    $('#creneaux-date').valueAsDate = new Date();
-    $('#creneaux-result').innerHTML = '';
+    state.doctors = await api('GET', '/doctors');
+    const select = $('#slots-doctor');
+    select.innerHTML = '<option value="">Choose a doctor...</option>' +
+      state.doctors.map(d => `<option value="${d.id}">Dr ${d.first_name} ${d.last_name} — ${d.specialty}</option>`).join('');
+    $('#slots-date').valueAsDate = new Date();
+    $('#slots-result').innerHTML = '';
   } catch (e) { toast(e.message, 'error'); }
 }
 
-async function chercherCreneaux() {
-  const medecinId = $('#creneaux-medecin').value;
-  const jour = $('#creneaux-date').value;
-  if (!medecinId || !jour) {
-    $('#creneaux-result').innerHTML = '';
+async function searchSlots() {
+  const doctorId = $('#slots-doctor').value;
+  const day = $('#slots-date').value;
+  if (!doctorId || !day) {
+    $('#slots-result').innerHTML = '';
     return;
   }
   try {
-    const data = await api('GET', `/medecins/${medecinId}/creneaux?jour=${jour}`);
-    const container = $('#creneaux-result');
-    if (data.creneaux_disponibles.length === 0) {
+    const data = await api('GET', `/doctors/${doctorId}/slots?day=${day}`);
+    const container = $('#slots-result');
+    if (data.available_slots.length === 0) {
       container.innerHTML = `
         <div class="bg-white rounded-2xl p-12 border border-slate-200 shadow-sm text-center">
           <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-slate-100 mb-3">
             <svg class="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"/></svg>
           </div>
-          <p class="font-semibold text-slate-900">Aucun créneau disponible</p>
-          <p class="text-sm text-slate-500 mt-1">Le médecin n'est pas disponible ce jour-là (week-end ou journée complète).</p>
+          <p class="font-semibold text-slate-900">No available slots</p>
+          <p class="text-sm text-slate-500 mt-1">The doctor is not available on that day (weekend or fully booked).</p>
         </div>`;
       return;
     }
     container.innerHTML = `
       <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-        <p class="text-sm text-slate-600 mb-4">${data.creneaux_disponibles.length} créneaux disponibles le ${data.date}</p>
+        <p class="text-sm text-slate-600 mb-4">${data.available_slots.length} available slots on ${data.date}</p>
         <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2">
-          ${data.creneaux_disponibles.map(h => `
+          ${data.available_slots.map(h => `
             <button class="px-3 py-2 rounded-lg bg-gradient-to-br from-primary-50 to-primary-100 hover:from-primary-100 hover:to-primary-500 hover:text-white text-primary-700 font-semibold text-sm transition shadow-sm">
               ${h}
             </button>
@@ -419,7 +419,7 @@ async function chercherCreneaux() {
   } catch (e) { toast(e.message, 'error'); }
 }
 
-// ===== HELPERS UI =====
+// ===== UI HELPERS =====
 
 function emptyState(title, subtitle) {
   return `
@@ -435,19 +435,19 @@ function emptyState(title, subtitle) {
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 
-function fillRdvSelects() {
+function fillAppointmentSelects() {
   $('select[name="patient_id"]').innerHTML =
-    '<option value="">Choisir un patient...</option>' +
-    state.patients.map(p => `<option value="${p.id}">${p.prenom} ${p.nom}</option>`).join('');
-  $('select[name="medecin_id"]').innerHTML =
-    '<option value="">Choisir un médecin...</option>' +
-    state.medecins.map(m => `<option value="${m.id}">Dr ${m.prenom} ${m.nom} — ${m.specialite}</option>`).join('');
+    '<option value="">Choose a patient...</option>' +
+    state.patients.map(p => `<option value="${p.id}">${p.first_name} ${p.last_name}</option>`).join('');
+  $('select[name="doctor_id"]').innerHTML =
+    '<option value="">Choose a doctor...</option>' +
+    state.doctors.map(d => `<option value="${d.id}">Dr ${d.first_name} ${d.last_name} — ${d.specialty}</option>`).join('');
 }
 
-// ===== ÉVÉNEMENTS =====
+// ===== EVENTS =====
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Onglets login/register
+  // Login/register tabs
   $('#tab-login').addEventListener('click', () => {
     $('#tab-login').classList.add('bg-white', 'shadow-sm', 'text-slate-900');
     $('#tab-login').classList.remove('text-slate-600');
@@ -465,13 +465,13 @@ document.addEventListener('DOMContentLoaded', () => {
     $('#form-login').classList.add('hidden');
   });
 
-  // Soumissions login/register
+  // Login/register submissions
   $('#form-login').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     try {
       await login(fd.get('email'), fd.get('password'));
-      toast(`Bienvenue ${state.user.email}`, 'success');
+      toast(`Welcome ${state.user.email}`, 'success');
     } catch (err) { toast(err.message, 'error'); }
   });
   $('#form-register').addEventListener('submit', async (e) => {
@@ -485,88 +485,88 @@ document.addEventListener('DOMContentLoaded', () => {
   // Logout
   $('#btn-logout').addEventListener('click', () => {
     logout();
-    toast('Déconnecté', 'info');
+    toast('Signed out', 'info');
   });
 
   // Navigation
   $$('.nav-link').forEach(b => b.addEventListener('click', () => navigate(b.dataset.page)));
 
-  // Boutons nouveau
+  // New buttons
   $('#btn-new-patient').addEventListener('click', () => openModal('#modal-patient'));
-  $('#btn-new-medecin').addEventListener('click', () => openModal('#modal-medecin'));
-  $('#btn-new-rdv').addEventListener('click', () => {
-    fillRdvSelects();
-    openModal('#modal-rdv');
+  $('#btn-new-doctor').addEventListener('click', () => openModal('#modal-doctor'));
+  $('#btn-new-appointment').addEventListener('click', () => {
+    fillAppointmentSelects();
+    openModal('#modal-appointment');
   });
 
-  // Fermeture des modales
+  // Close modals
   $$('.modal-close').forEach(b => b.addEventListener('click', () => {
-    $$('#modal-patient, #modal-medecin, #modal-rdv').forEach(m => m.classList.add('hidden'));
+    $$('#modal-patient, #modal-doctor, #modal-appointment').forEach(m => m.classList.add('hidden'));
   }));
 
-  // Soumissions des formulaires
+  // Form submissions
   $('#form-patient').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const data = {
-      nom: fd.get('nom'),
-      prenom: fd.get('prenom'),
+      last_name: fd.get('last_name'),
+      first_name: fd.get('first_name'),
       age: parseInt(fd.get('age')),
-      numero_ramq: fd.get('numero_ramq').toUpperCase(),
+      health_card_number: fd.get('health_card_number').toUpperCase(),
     };
     try {
       await api('POST', '/patients', data);
-      toast('Patient créé', 'success');
+      toast('Patient created', 'success');
       e.target.reset();
       closeModal('#modal-patient');
       loadPatients();
     } catch (err) { toast(err.message, 'error'); }
   });
 
-  $('#form-medecin').addEventListener('submit', async (e) => {
+  $('#form-doctor').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const data = {
-      nom: fd.get('nom'),
-      prenom: fd.get('prenom'),
-      specialite: fd.get('specialite'),
-      numero_permis: fd.get('numero_permis'),
+      last_name: fd.get('last_name'),
+      first_name: fd.get('first_name'),
+      specialty: fd.get('specialty'),
+      license_number: fd.get('license_number'),
     };
     try {
-      await api('POST', '/medecins', data);
-      toast('Médecin créé', 'success');
+      await api('POST', '/doctors', data);
+      toast('Doctor created', 'success');
       e.target.reset();
-      closeModal('#modal-medecin');
-      loadMedecins();
+      closeModal('#modal-doctor');
+      loadDoctors();
     } catch (err) { toast(err.message, 'error'); }
   });
 
-  $('#form-rdv').addEventListener('submit', async (e) => {
+  $('#form-appointment').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
     const data = {
       patient_id: parseInt(fd.get('patient_id')),
-      medecin_id: parseInt(fd.get('medecin_id')),
-      date_heure: fd.get('date_heure') + ':00',
-      duree_minutes: parseInt(fd.get('duree_minutes')),
-      motif: fd.get('motif') || null,
+      doctor_id: parseInt(fd.get('doctor_id')),
+      scheduled_at: fd.get('scheduled_at') + ':00',
+      duration_minutes: parseInt(fd.get('duration_minutes')),
+      reason: fd.get('reason') || null,
       mode: fd.get('mode'),
-      statut: 'prevu',
+      status: 'scheduled',
     };
     try {
-      await api('POST', '/rendezvous', data);
-      toast('Rendez-vous créé', 'success');
+      await api('POST', '/appointments', data);
+      toast('Appointment created', 'success');
       e.target.reset();
-      closeModal('#modal-rdv');
-      loadRendezVous();
+      closeModal('#modal-appointment');
+      loadAppointments();
     } catch (err) { toast(err.message, 'error'); }
   });
 
-  // Créneaux
-  $('#creneaux-medecin').addEventListener('change', chercherCreneaux);
-  $('#creneaux-date').addEventListener('change', chercherCreneaux);
+  // Slots
+  $('#slots-doctor').addEventListener('change', searchSlots);
+  $('#slots-date').addEventListener('change', searchSlots);
 
-  // Auto-login si token valide
+  // Auto-login if token is valid
   if (state.token) {
     loadUser().then(() => {
       if (state.user) {
@@ -577,8 +577,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// Exposition globale pour les onclick inline
+// Global exposure for inline onclick handlers
 window.deletePatient = deletePatient;
-window.deleteMedecin = deleteMedecin;
-window.annulerRdv = annulerRdv;
-window.deleteRdv = deleteRdv;
+window.deleteDoctor = deleteDoctor;
+window.cancelAppointment = cancelAppointment;
+window.deleteAppointment = deleteAppointment;

@@ -1,25 +1,25 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# URL de la base de données SQLite
-# Le fichier app.db sera créé automatiquement dans ton dossier
+# SQLite database URL.
+# The app.db file is created automatically in the project directory.
 SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 
-# Le "engine" = le moteur qui gère la connexion à la DB
+# The "engine" manages the connection to the database.
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False}  # Spécifique à SQLite
+    connect_args={"check_same_thread": False},  # SQLite-specific
 )
 
-# La "session factory" = elle crée des sessions pour parler à la DB
+# The "session factory" creates sessions used to talk to the database.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# La classe parente pour tous nos modèles (= tables)
+# Base class for all our models (= tables).
 Base = declarative_base()
 
 
-# Fonction utilitaire pour FastAPI
-# Elle ouvre une session, la donne à l'endpoint, puis la ferme
+# Utility dependency for FastAPI:
+# opens a session, hands it to the endpoint, then closes it.
 def get_db():
     db = SessionLocal()
     try:

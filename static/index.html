@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clinique — Gestion de rendez-vous</title>
+  <title>Clinic — Appointment Management</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -46,7 +46,7 @@
 </head>
 <body class="bg-slate-50 text-slate-800">
 
-  <!-- ========== ÉCRAN DE CONNEXION ========== -->
+  <!-- ========== LOGIN SCREEN ========== -->
   <div id="login-screen" class="min-h-screen flex items-center justify-center px-4"
        style="background: linear-gradient(135deg, #f0f9ff 0%, #e0e7ff 100%);">
     <div class="w-full max-w-md">
@@ -57,72 +57,72 @@
                   d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
           </svg>
         </div>
-        <h1 class="text-3xl font-bold text-slate-900">Clinique</h1>
-        <p class="text-slate-500 mt-1">Gestion des rendez-vous médicaux</p>
+        <h1 class="text-3xl font-bold text-slate-900">Clinic</h1>
+        <p class="text-slate-500 mt-1">Medical appointment management</p>
       </div>
 
       <div class="bg-white rounded-2xl shadow-xl p-8 border border-slate-200/50">
-        <!-- Onglets -->
+        <!-- Tabs -->
         <div class="flex bg-slate-100 rounded-xl p-1 mb-6">
           <button id="tab-login" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium bg-white shadow-sm text-slate-900">
-            Connexion
+            Sign in
           </button>
           <button id="tab-register" class="flex-1 py-2 px-4 rounded-lg text-sm font-medium text-slate-600">
-            Créer un compte
+            Create account
           </button>
         </div>
 
-        <!-- Formulaire login -->
+        <!-- Login form -->
         <form id="form-login" class="space-y-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
             <input type="email" name="email" required
                    class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                   placeholder="moi@clinique.com" />
+                   placeholder="me@clinic.com" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
             <input type="password" name="password" required minlength="6"
                    class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
                    placeholder="••••••••" />
           </div>
           <button type="submit"
                   class="w-full py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-lg shadow-md transition transform hover:-translate-y-0.5">
-            Se connecter
+            Sign in
           </button>
         </form>
 
-        <!-- Formulaire register -->
+        <!-- Register form -->
         <form id="form-register" class="space-y-4 hidden">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Email</label>
             <input type="email" name="email" required
                    class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                   placeholder="moi@clinique.com" />
+                   placeholder="me@clinic.com" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
             <input type="password" name="password" required minlength="6"
                    class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                   placeholder="6 caractères minimum" />
+                   placeholder="6 characters minimum" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Rôle</label>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Role</label>
             <select name="role"
                     class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition bg-white">
-              <option value="admin">Administrateur</option>
-              <option value="medecin">Médecin</option>
+              <option value="admin">Administrator</option>
+              <option value="doctor">Doctor</option>
             </select>
           </div>
           <button type="submit"
                   class="w-full py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-lg shadow-md transition transform hover:-translate-y-0.5">
-            Créer mon compte
+            Create my account
           </button>
         </form>
       </div>
 
       <p class="text-center text-xs text-slate-400 mt-6">
-        Projet personnel — Soundous Boutarfaya
+        Personal project — Soundous Boutarfaya
       </p>
     </div>
   </div>
@@ -130,7 +130,7 @@
   <!-- ========== APPLICATION ========== -->
   <div id="app-screen" class="hidden min-h-screen">
 
-    <!-- Barre supérieure -->
+    <!-- Top bar -->
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
       <div class="flex items-center justify-between px-6 py-3">
         <div class="flex items-center gap-3">
@@ -141,8 +141,8 @@
             </svg>
           </div>
           <div>
-            <h1 class="font-bold text-slate-900 text-lg leading-tight">Clinique</h1>
-            <p class="text-xs text-slate-500 leading-tight">Gestion des rendez-vous</p>
+            <h1 class="font-bold text-slate-900 text-lg leading-tight">Clinic</h1>
+            <p class="text-xs text-slate-500 leading-tight">Appointment management</p>
           </div>
         </div>
         <div class="flex items-center gap-3">
@@ -151,7 +151,7 @@
             <p class="text-xs text-slate-500" id="user-role"></p>
           </div>
           <div class="w-9 h-9 rounded-full bg-gradient-to-br from-primary-100 to-primary-500 flex items-center justify-center text-white font-semibold" id="user-avatar">?</div>
-          <button id="btn-logout" title="Se déconnecter"
+          <button id="btn-logout" title="Sign out"
                   class="p-2 hover:bg-slate-100 rounded-lg transition">
             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -171,7 +171,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
             </svg>
-            Tableau de bord
+            Dashboard
           </button>
           <button data-page="patients" class="nav-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,34 +180,34 @@
             </svg>
             Patients
           </button>
-          <button data-page="medecins" class="nav-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
+          <button data-page="doctors" class="nav-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
             </svg>
-            Médecins
+            Doctors
           </button>
-          <button data-page="rendezvous" class="nav-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
+          <button data-page="appointments" class="nav-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
             </svg>
-            Rendez-vous
+            Appointments
           </button>
-          <button data-page="creneaux" class="nav-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
+          <button data-page="slots" class="nav-link w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 transition">
             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
             </svg>
-            Créneaux libres
+            Available slots
           </button>
         </nav>
 
         <div class="mt-8 p-4 rounded-xl bg-gradient-to-br from-primary-50 to-indigo-50 border border-primary-100">
-          <p class="text-xs font-semibold text-primary-900 mb-1">Documentation API</p>
-          <p class="text-xs text-slate-600 mb-3">Voir tous les endpoints en détail</p>
+          <p class="text-xs font-semibold text-primary-900 mb-1">API documentation</p>
+          <p class="text-xs text-slate-600 mb-3">See all endpoints in detail</p>
           <a href="/docs" target="_blank" class="text-xs font-medium text-primary-700 hover:text-primary-900 flex items-center gap-1">
-            Ouvrir Swagger UI
+            Open Swagger UI
             <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
@@ -216,12 +216,12 @@
         </div>
       </aside>
 
-      <!-- Contenu principal -->
+      <!-- Main content -->
       <main class="flex-1 p-6 md:p-8 max-w-7xl">
-        <!-- Tableau de bord -->
+        <!-- Dashboard -->
         <section id="page-dashboard">
-          <h2 class="text-2xl font-bold text-slate-900 mb-1">Tableau de bord</h2>
-          <p class="text-slate-500 mb-6">Vue d'ensemble de la clinique</p>
+          <h2 class="text-2xl font-bold text-slate-900 mb-1">Dashboard</h2>
+          <p class="text-slate-500 mb-6">Clinic overview</p>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -235,28 +235,28 @@
             </div>
             <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
               <div class="flex items-center justify-between mb-3">
-                <span class="text-sm font-medium text-slate-500">Médecins</span>
+                <span class="text-sm font-medium text-slate-500">Doctors</span>
                 <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
                   <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
                 </div>
               </div>
-              <p class="text-3xl font-bold text-slate-900" id="stat-medecins">—</p>
+              <p class="text-3xl font-bold text-slate-900" id="stat-doctors">—</p>
             </div>
             <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
               <div class="flex items-center justify-between mb-3">
-                <span class="text-sm font-medium text-slate-500">Rendez-vous</span>
+                <span class="text-sm font-medium text-slate-500">Appointments</span>
                 <div class="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
                   <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 </div>
               </div>
-              <p class="text-3xl font-bold text-slate-900" id="stat-rdv">—</p>
+              <p class="text-3xl font-bold text-slate-900" id="stat-appointments">—</p>
             </div>
           </div>
 
           <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-            <h3 class="text-lg font-semibold text-slate-900 mb-4">Prochains rendez-vous</h3>
+            <h3 class="text-lg font-semibold text-slate-900 mb-4">Upcoming appointments</h3>
             <div id="dashboard-upcoming" class="space-y-2">
-              <p class="text-sm text-slate-400 italic">Chargement...</p>
+              <p class="text-sm text-slate-400 italic">Loading...</p>
             </div>
           </div>
         </section>
@@ -266,80 +266,80 @@
           <div class="flex items-center justify-between mb-6">
             <div>
               <h2 class="text-2xl font-bold text-slate-900">Patients</h2>
-              <p class="text-slate-500">Gestion des dossiers patients</p>
+              <p class="text-slate-500">Patient records management</p>
             </div>
             <button id="btn-new-patient"
                     class="px-4 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 hover:from-primary-600 hover:to-primary-700 text-white font-medium rounded-lg shadow-md flex items-center gap-2 transition transform hover:-translate-y-0.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              Nouveau patient
+              New patient
             </button>
           </div>
           <div id="patients-list" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
         </section>
 
-        <!-- Médecins -->
-        <section id="page-medecins" class="hidden">
+        <!-- Doctors -->
+        <section id="page-doctors" class="hidden">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <h2 class="text-2xl font-bold text-slate-900">Médecins</h2>
-              <p class="text-slate-500">Équipe médicale</p>
+              <h2 class="text-2xl font-bold text-slate-900">Doctors</h2>
+              <p class="text-slate-500">Medical team</p>
             </div>
-            <button id="btn-new-medecin"
+            <button id="btn-new-doctor"
                     class="px-4 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 hover:from-primary-600 hover:to-primary-700 text-white font-medium rounded-lg shadow-md flex items-center gap-2 transition transform hover:-translate-y-0.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              Nouveau médecin
+              New doctor
             </button>
           </div>
-          <div id="medecins-list" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
+          <div id="doctors-list" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
         </section>
 
-        <!-- Rendez-vous -->
-        <section id="page-rendezvous" class="hidden">
+        <!-- Appointments -->
+        <section id="page-appointments" class="hidden">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <h2 class="text-2xl font-bold text-slate-900">Rendez-vous</h2>
-              <p class="text-slate-500">Agenda complet de la clinique</p>
+              <h2 class="text-2xl font-bold text-slate-900">Appointments</h2>
+              <p class="text-slate-500">Full clinic schedule</p>
             </div>
-            <button id="btn-new-rdv"
+            <button id="btn-new-appointment"
                     class="px-4 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 hover:from-primary-600 hover:to-primary-700 text-white font-medium rounded-lg shadow-md flex items-center gap-2 transition transform hover:-translate-y-0.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-              Nouveau rendez-vous
+              New appointment
             </button>
           </div>
-          <div id="rdv-list" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
+          <div id="appointments-list" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"></div>
         </section>
 
-        <!-- Créneaux -->
-        <section id="page-creneaux" class="hidden">
-          <h2 class="text-2xl font-bold text-slate-900 mb-1">Créneaux libres</h2>
-          <p class="text-slate-500 mb-6">Trouver une disponibilité pour un médecin</p>
+        <!-- Available slots -->
+        <section id="page-slots" class="hidden">
+          <h2 class="text-2xl font-bold text-slate-900 mb-1">Available slots</h2>
+          <p class="text-slate-500 mb-6">Find availability for a doctor</p>
 
           <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm mb-6">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1.5">Médecin</label>
-                <select id="creneaux-medecin"
+                <label class="block text-sm font-medium text-slate-700 mb-1.5">Doctor</label>
+                <select id="slots-doctor"
                         class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"></select>
               </div>
               <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1.5">Date</label>
-                <input type="date" id="creneaux-date"
+                <input type="date" id="slots-date"
                        class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
               </div>
             </div>
           </div>
 
-          <div id="creneaux-result"></div>
+          <div id="slots-result"></div>
         </section>
       </main>
     </div>
   </div>
 
-  <!-- ========== MODAL : Patient ========== -->
+  <!-- ========== MODAL: Patient ========== -->
   <div id="modal-patient" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 modal-backdrop">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
       <div class="p-6 border-b border-slate-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-slate-900">Nouveau patient</h3>
+        <h3 class="text-lg font-semibold text-slate-900">New patient</h3>
         <button class="modal-close p-1 hover:bg-slate-100 rounded-lg">
           <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
@@ -347,122 +347,122 @@
       <form id="form-patient" class="p-6 space-y-4">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Prénom</label>
-            <input type="text" name="prenom" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">First name</label>
+            <input type="text" name="first_name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom</label>
-            <input type="text" name="nom" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Last name</label>
+            <input type="text" name="last_name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Âge</label>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Age</label>
           <input type="number" name="age" required min="0" max="120" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Numéro RAMQ</label>
-          <input type="text" name="numero_ramq" required pattern="^[A-Z]{4}\d{8}$" placeholder="TREM45120115"
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Health card number</label>
+          <input type="text" name="health_card_number" required pattern="^[A-Z]{4}\d{8}$" placeholder="TREM45120115"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono" />
-          <p class="text-xs text-slate-500 mt-1">Format : 4 lettres majuscules suivies de 8 chiffres</p>
+          <p class="text-xs text-slate-500 mt-1">Format: 4 uppercase letters followed by 8 digits</p>
         </div>
         <div class="flex gap-2 pt-2">
-          <button type="button" class="modal-close flex-1 py-2.5 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Annuler</button>
-          <button type="submit" class="flex-1 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-md hover:-translate-y-0.5 transition">Créer</button>
+          <button type="button" class="modal-close flex-1 py-2.5 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="flex-1 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-md hover:-translate-y-0.5 transition">Create</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- ========== MODAL : Médecin ========== -->
-  <div id="modal-medecin" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 modal-backdrop">
+  <!-- ========== MODAL: Doctor ========== -->
+  <div id="modal-doctor" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 modal-backdrop">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
       <div class="p-6 border-b border-slate-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-slate-900">Nouveau médecin</h3>
+        <h3 class="text-lg font-semibold text-slate-900">New doctor</h3>
         <button class="modal-close p-1 hover:bg-slate-100 rounded-lg">
           <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <form id="form-medecin" class="p-6 space-y-4">
+      <form id="form-doctor" class="p-6 space-y-4">
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Prénom</label>
-            <input type="text" name="prenom" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">First name</label>
+            <input type="text" name="first_name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom</label>
-            <input type="text" name="nom" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Last name</label>
+            <input type="text" name="last_name" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Spécialité</label>
-          <input type="text" name="specialite" required placeholder="cardiologie, pédiatrie..."
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Specialty</label>
+          <input type="text" name="specialty" required placeholder="cardiology, pediatrics..."
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Numéro de permis</label>
-          <input type="text" name="numero_permis" required pattern="^\d{5}$" placeholder="12345"
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">License number</label>
+          <input type="text" name="license_number" required pattern="^\d{5}$" placeholder="12345"
                  class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none font-mono" />
-          <p class="text-xs text-slate-500 mt-1">5 chiffres (Collège des médecins du Québec)</p>
+          <p class="text-xs text-slate-500 mt-1">5 digits (Collège des médecins du Québec)</p>
         </div>
         <div class="flex gap-2 pt-2">
-          <button type="button" class="modal-close flex-1 py-2.5 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Annuler</button>
-          <button type="submit" class="flex-1 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-md hover:-translate-y-0.5 transition">Créer</button>
+          <button type="button" class="modal-close flex-1 py-2.5 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="flex-1 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-md hover:-translate-y-0.5 transition">Create</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- ========== MODAL : Rendez-vous ========== -->
-  <div id="modal-rdv" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 modal-backdrop">
+  <!-- ========== MODAL: Appointment ========== -->
+  <div id="modal-appointment" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 modal-backdrop">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
       <div class="p-6 border-b border-slate-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-slate-900">Nouveau rendez-vous</h3>
+        <h3 class="text-lg font-semibold text-slate-900">New appointment</h3>
         <button class="modal-close p-1 hover:bg-slate-100 rounded-lg">
           <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <form id="form-rdv" class="p-6 space-y-4">
+      <form id="form-appointment" class="p-6 space-y-4">
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Patient</label>
           <select name="patient_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"></select>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Médecin</label>
-          <select name="medecin_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"></select>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Doctor</label>
+          <select name="doctor_id" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none bg-white"></select>
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date et heure</label>
-            <input type="datetime-local" name="date_heure" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date and time</label>
+            <input type="datetime-local" name="scheduled_at" required class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
           </div>
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Durée (min)</label>
-            <input type="number" name="duree_minutes" value="30" min="15" max="240" step="15" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Duration (min)</label>
+            <input type="number" name="duration_minutes" value="30" min="15" max="240" step="15" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none" />
           </div>
         </div>
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Mode</label>
           <div class="grid grid-cols-2 gap-2">
             <label class="flex items-center justify-center gap-2 px-3 py-2 border-2 border-slate-200 rounded-lg cursor-pointer hover:border-primary-500 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50">
-              <input type="radio" name="mode" value="en_personne" checked class="sr-only" />
+              <input type="radio" name="mode" value="in_person" checked class="sr-only" />
               <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-1a4 4 0 014-4h10a4 4 0 014 4v1M16 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-              <span class="text-sm font-medium">En personne</span>
+              <span class="text-sm font-medium">In person</span>
             </label>
             <label class="flex items-center justify-center gap-2 px-3 py-2 border-2 border-slate-200 rounded-lg cursor-pointer hover:border-primary-500 has-[:checked]:border-primary-500 has-[:checked]:bg-primary-50">
-              <input type="radio" name="mode" value="virtuel" class="sr-only" />
+              <input type="radio" name="mode" value="virtual" class="sr-only" />
               <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
-              <span class="text-sm font-medium">Virtuel</span>
+              <span class="text-sm font-medium">Virtual</span>
             </label>
           </div>
         </div>
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Motif (optionnel)</label>
-          <textarea name="motif" rows="2" placeholder="Consultation annuelle, suivi..."
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Reason (optional)</label>
+          <textarea name="reason" rows="2" placeholder="Annual checkup, follow-up..."
                     class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none resize-none"></textarea>
         </div>
         <div class="flex gap-2 pt-2">
-          <button type="button" class="modal-close flex-1 py-2.5 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Annuler</button>
-          <button type="submit" class="flex-1 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-md hover:-translate-y-0.5 transition">Créer</button>
+          <button type="button" class="modal-close flex-1 py-2.5 border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50">Cancel</button>
+          <button type="submit" class="flex-1 py-2.5 bg-gradient-to-br from-primary-500 to-primary-700 text-white font-semibold rounded-lg shadow-md hover:-translate-y-0.5 transition">Create</button>
         </div>
       </form>
     </div>
